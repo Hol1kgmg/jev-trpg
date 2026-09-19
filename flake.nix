@@ -3,9 +3,10 @@
     nixpkgs.url = "github:cachix/devenv-nixpkgs/rolling";
     flake-utils.url = "github:numtide/flake-utils";
     agent-skills.url = "github:Kyure-A/agent-skills-nix";
+    nur-packages.url = "github:Hol1kgmg/nur-packages";
   };
 
-  outputs = { nixpkgs, flake-utils, agent-skills, ... }:
+  outputs = { nixpkgs, flake-utils, agent-skills, nur-packages, ... }:
     let
       agentLib = agent-skills.lib.agent-skills;
 
@@ -58,6 +59,7 @@
             pkgs.lefthook
             pkgs.gh
             pkgs.gh-dash
+            nur-packages.packages.${system}.spec-kit
           ];
 
           shellHook = ''

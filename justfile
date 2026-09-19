@@ -1,25 +1,29 @@
-# List available recipes for just
+# List recipes
 list:
     @just --list
 
-# Sync agent skills into .claude/skills
+# Install skills into .claude/skills
 skills:
     nix run .#skills-install-local
 
+# List installed skills
 skills-list:
     nix run .#skills-list
 
-# Update pinned skill sources (rewrites registry/sources.lock.json)
+# Re-pin skill sources
 skills-update:
     nix run .#skills-sources-lock
 
-# Update flake.lock and registry/sources.lock.json, then verify
+# Update all locks, then check
 update:
     nix flake update
     nix run .#skills-sources-lock
     nix flake check
 
-# Merge template updates from upstream (run when you want them, not on a schedule)
+# Restore speckit-* skills into .agents/skills
+spec:
+    specify integration upgrade claude --force
+
 sync:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -32,7 +36,7 @@ sync:
     # 次回以降ツリー全体が衝突する（adr/from-template/0001）
     git merge upstream/main --allow-unrelated-histories --no-edit
 
-# Scan the working tree for secrets
+# Scan working tree for secrets
 scan:
     gitleaks dir --verbose
 
