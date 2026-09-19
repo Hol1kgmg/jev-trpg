@@ -1,50 +1,105 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: (未採択テンプレート) → 1.0.0
+- Modified principles:
+  - [PRINCIPLE_1_NAME] → I. 判定はコード、解釈だけが LLM
+  - [PRINCIPLE_2_NAME] → II. 1ターン1回の Jev 呼び出し
+  - [PRINCIPLE_3_NAME] → III. 生成物は解けることを保証する
+  - [PRINCIPLE_4_NAME] → IV. LLM なしでテストできる
+  - [PRINCIPLE_5_NAME] → V. MVP 優先・YAGNI
+- Added sections: 技術制約とセキュリティ境界 / 開発ワークフロー
+- Removed sections: なし
+- Follow-up TODOs:
+  - TODO(RATIFICATION_DATE): 初版採択日を 2026-09-20 と仮置き。実際の合意日が異なる場合は訂正すること。
+-->
+
+# jev-trpg Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. 判定はコード、解釈だけが LLM
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+行動の成否を決めるのはコードである。Jev が返すのは自然言語入力の解釈結果
+（action_type、skill、plausibility、horror_exposure などの構造化値）だけに限る。
+成功率の計算、d100 のロール、HP・正気度・手がかり・ターン数の更新は、すべて
+テスト可能な純粋なロジックとして実装し、LLM の出力をそのままゲーム状態に反映して
+はならない。描写文は LLM に生成させず、テンプレートから選択する。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+根拠: 判定を LLM に委ねるとゲームバランスが再現不能になり、回帰テストも成立しない。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. 1ターン1回の Jev 呼び出し
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+1ターンの処理で Jev を呼び出してよいのは 1 回だけとする。その 1 回に必要な質問を
+すべてまとめる。Jev に渡す state は判定に必要な最小限（現在地、探索者の要約、入手済み
+手がかり、今回の行動）に限定する。確信度の低い判定は失敗扱いにせず、「手応えがない」
+系の曖昧な結果にマップする。呼び出し失敗時は必ずフォールバック経路でターンを完結させ、
+プレイヤーの操作を行き止まりにしてはならない。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+根拠: 呼び出し回数はレイテンシとコストに直結し、プレイ体験の下限を決める。
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. 生成物は解けることを保証する
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+探索者・怪異・クリア条件をランダム生成する箇所は、生成した時点で「クリア条件に至る
+手がかりがマップ内に必ず配置されている」ことをコードで検証しなければならない。
+検証に失敗した生成結果は破棄して再生成する。この保証はテストで担保する。
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+根拠: ランダム生成のクリア不能シードは、プレイヤーからは理不尽な難度と区別がつかない。
+
+### IV. LLM なしでテストできる
+
+ゲームロジックのテストは Jev をモックして実行し、ネットワークと API キーなしで
+完結しなければならない。生成ロジック、ターン進行、終了判定、解ける保証には
+Vitest のテストを置く。Jev の判定精度そのものの検証は、ゲームロジックのテストとは
+分離した評価用のデータセットで行う。
+
+根拠: LLM を叩くテストは遅く、非決定的で、CI で信頼できない。
+
+### V. MVP 優先・YAGNI
+
+スコープはシナリオ1本・1プレイ15〜20分の1人用 Web ゲームに固定する。
+マルチプレイ、シナリオエディタ、サーバー永続化、複数 LLM プロバイダ対応などは
+MVP の完成まで実装してはならない。抽象化は 2 つ目の実装が現れてから導入する。
+単一実装のインターフェース、変化しない値のための設定機構は追加しない。
+
+根拠: 未確定のゲーム性に対する先行投資は、作り直しのたびに全額が捨てられる。
+
+## 技術制約とセキュリティ境界
+
+- スタック: Next.js (App Router) + TypeScript、Zustand、Tailwind CSS、Vitest、Vercel。
+- Jev 呼び出しは公式 SDK `@typesafe-ai/sdk` を使い、Route Handler 経由でのみ行う。
+  Gateway 層は導入しない。
+- API キーはサーバー側にのみ置く。クライアントバンドルに秘匿値を含めてはならない。
+  コミット前の gitleaks チェックを迂回してはならない。
+- セーブデータは localStorage とする。クライアントから来た状態は信頼境界の外側であり、
+  ターン処理に使う前にサーバー側で検証する。
+- プレイヤー入力のメタ的な指示（`meta_cheat`）は判定で検出し、ゲーム内の結果として
+  処理する。プロンプトへそのまま流し込んではならない。
+
+## 開発ワークフロー
+
+- 実装前に計画を提示し、承認を得てから着手する（AGENTS.md の Work Rules に従う）。
+- タスクは `just` 経由で実行する。lefthook の Git フックを無効化して commit しない。
+- 設計判断は `adr/` に ADR として記録する。本 Constitution と矛盾する ADR は採択できない。
+- テンプレート元からの取り込みは `just sync`（マージコミット）で行う。squash / rebase は
+  共通祖先を壊すため使用しない。
+- 仕様作業は Spec Kit のコマンド（`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`
+  → `/speckit-implement`）の順に進める。
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+本 Constitution は他のすべての開発上の慣習に優先する。矛盾が生じた場合は
+本文書が勝ち、慣習の側を改める。
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+改定手順: 変更は本ファイルへの PR として提案し、変更理由と影響範囲（既存コード・
+ADR・進行中の spec）を記載する。承認後にマージし、必要な移行作業を同 PR か
+追跡可能な後続タスクで完了させる。
+
+バージョニング: セマンティックバージョニングに従う。MAJOR は原則の削除または
+後方非互換な再定義、MINOR は原則・セクションの追加または実質的な内容拡張、
+PATCH は文言の明確化・誤記修正など意味を変えない修正。
+
+コンプライアンス: すべての PR レビューで本 Constitution への適合を確認する。
+原則から逸脱する実装は、逸脱の理由と、より単純な代替が不十分である根拠を
+PR に明記しなければならない。実行時の開発ガイダンスは AGENTS.md を参照する。
+
+**Version**: 1.0.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-20
