@@ -14,6 +14,9 @@
       sources = agentLib.sourcesFromLock {
         manifestsDir = ./registry/sources;
         lockFile = ./registry/sources.lock.json;
+      } // {
+        # 独自スキル。rev 固定が不要なため lock には載せない。
+        local = { path = ./skills; };
       };
       catalog = agentLib.discoverCatalog sources;
       selection = agentLib.selectSkills {
@@ -24,6 +27,9 @@
       localTargets = {
         agents = agentLib.defaultLocalTargets.agents // { enable = true; };
       };
+
+      # speckit-* は specify の生成物。ローカル同期の rsync --delete から守る。
+      excludePatterns = agentLib.defaultExcludePatterns ++ [ "/speckit-*" ];
     in
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -49,7 +55,7 @@
 
         apps.skills-install-local = {
           type = "app";
-          program = "${agentLib.mkLocalInstallProgram { inherit pkgs bundle; targets = localTargets; }}/bin/skills-install-local";
+          program = "${agentLib.mkLocalInstallProgram { inherit pkgs bundle excludePatterns; targets = localTargets; }}/bin/skills-install-local";
         };
 
         devShells.default = pkgs.mkShell {
@@ -65,7 +71,7 @@
           shellHook = ''
             lefthook install >/dev/null
           '' + agentLib.mkShellHook {
-            inherit pkgs bundle;
+            inherit pkgs bundle excludePatterns;
             targets = localTargets;
             quiet = true;
           };

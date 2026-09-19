@@ -22,7 +22,7 @@ update:
 
 # Restore speckit-* skills into .agents/skills
 spec:
-    specify integration upgrade claude --force
+    nix develop --command specify integration upgrade claude --force
 
 sync:
     #!/usr/bin/env bash
