@@ -36,6 +36,10 @@ sync:
     # 次回以降ツリー全体が衝突する（adr/from-template/0001）
     git merge upstream/main --allow-unrelated-histories --no-edit
 
+# Serve markdown at http://localhost:8080
+docs *ARGS:
+    markserv . -p 8080 -a 0.0.0.0 --browser=false {{ARGS}}
+
 # Scan working tree for secrets
 scan:
     gitleaks dir --verbose

@@ -66,6 +66,7 @@
             pkgs.gh
             pkgs.gh-dash
             nur-packages.packages.${system}.spec-kit
+            nur-packages.packages.${system}.markserv
           ];
 
           shellHook = ''
