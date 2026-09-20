@@ -150,12 +150,12 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 **Purpose**: spec.md FR-021〜FR-025 / SC-010 / SC-011。素材の出所を機械検証可能にし、
 独自作品としての立ち位置を実装上の制約として固定する（research.md R-009）
 
-- [ ] T026 `web/src/lib/game/types.ts` に `AssetEntry` 型を追加する: `path`（`public/` からの相対パス）、`sourceUrl`、`author`、`license`、`licenseUrl`、`requiresCredit`、`creditText`、`commercialUse`、`modification`、`modified`（data-model.md AssetEntry）
-- [ ] T027 `web/src/data/assets.ts` に `AssetEntry[]` を 1 つ export し、使用する画像素材をすべて登録する。第三者のフリー素材・CC ライセンス素材のみとし、TRPG 出版社・発売元が配布する図版類は登録しない（FR-024 / research.md R-009）
-- [ ] T028 [P] `web/src/data/assets.test.ts` に検証テストを書く: `public/` 配下の画像ファイル集合と `assets.ts` の `path` 集合が一致すること（SC-010）、`modified: true` のエントリは `modification: true` であること、`requiresCredit: true` のエントリは `creditText` が空でないこと（SC-011）、`path` に重複がないこと（data-model.md 検証ルール）
-- [ ] T029 `web/src/app/credits/page.tsx` にクレジット画面を実装し、`assets.ts` の `requiresCredit: true` のエントリを作者名・出典・ライセンス名つきで列挙する（FR-025）
-- [ ] T030 `web/src/app/page.tsx` にクレジット画面への導線を 1 クリックで到達できる位置に置く（FR-025 の「常時到達可能」）
-- [ ] T031 `web/src/data/templates/` 配下と `web/src/lib/game/tuning.ts` を人が読んで確認する: 既存TRPG作品のルール・技能表・データ表・固有名詞が混入していないこと（FR-022。機械判定できないためレビュー扱い）。あわせて画面全体に「公式」「公認」およびそれに類する表記がなく、収益化の導線が存在しないことを確認する（FR-021 / FR-023）
+- [X] T026 `web/src/lib/game/types.ts` に `AssetEntry` 型を追加する: `path`（`public/` からの相対パス）、`sourceUrl`、`author`、`license`、`licenseUrl`、`requiresCredit`、`creditText`、`commercialUse`、`modification`、`modified`（data-model.md AssetEntry）
+- [X] T027 `web/src/data/assets.ts` に `AssetEntry[]` を 1 つ export し、使用する画像素材をすべて登録する。第三者のフリー素材・CC ライセンス素材のみとし、TRPG 出版社・発売元が配布する図版類は登録しない（FR-024 / research.md R-009）
+- [X] T028 [P] `web/src/data/assets.test.ts` に検証テストを書く: `public/` 配下の画像ファイル集合と `assets.ts` の `path` 集合が一致すること（SC-010）、`modified: true` のエントリは `modification: true` であること、`requiresCredit: true` のエントリは `creditText` が空でないこと（SC-011）、`path` に重複がないこと（data-model.md 検証ルール）
+- [X] T029 `web/src/app/credits/page.tsx` にクレジット画面を実装し、`assets.ts` の `requiresCredit: true` のエントリを作者名・出典・ライセンス名つきで列挙する（FR-025）
+- [X] T030 `web/src/app/page.tsx` にクレジット画面への導線を 1 クリックで到達できる位置に置く（FR-025 の「常時到達可能」）
+- [X] T031 `web/src/data/templates/` 配下と `web/src/lib/game/tuning.ts` を人が読んで確認する: 既存TRPG作品のルール・技能表・データ表・固有名詞が混入していないこと（FR-022。機械判定できないためレビュー扱い）。あわせて画面全体に「公式」「公認」およびそれに類する表記がなく、収益化の導線が存在しないことを確認する（FR-021 / FR-023）
 
 **Checkpoint**: 素材の登録漏れがテストで落ちる状態になり、quickstart.md 手順 8 が実行できる
 

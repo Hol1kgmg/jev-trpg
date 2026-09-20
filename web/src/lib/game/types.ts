@@ -134,6 +134,30 @@ export type Judgment = {
   source: 'jev' | 'fallback';
 };
 
+/**
+ * 画像素材 1 件の出所。ゲーム状態とは独立した静的データで、封緘の対象外（data-model.md）。
+ * 画像の参照はこのエントリ経由に限る（FR-024）。
+ */
+export type AssetEntry = {
+  /** public/ からの相対パス。例: 'assets/entity-dweller.webp' */
+  path: string;
+  /** 入手元のページ URL */
+  sourceUrl: string;
+  /** 作者名。不明な場合も空文字にせず出典名を入れる */
+  author: string;
+  /** 'CC0-1.0' / 'CC BY 4.0' など */
+  license: string;
+  licenseUrl: string;
+  requiresCredit: boolean;
+  /** 表示するクレジット文。requiresCredit が false でも記録する */
+  creditText: string;
+  commercialUse: boolean;
+  /** ライセンス上、改変が許されているか */
+  modification: boolean;
+  /** 本作で実際に加工したか */
+  modified: boolean;
+};
+
 /** Jev に渡す最小限の情報（contracts/jev-questions.md） */
 export type JevState = {
   scene: string;

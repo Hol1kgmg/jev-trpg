@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { DIRECTIONS, type Direction, type SkillId } from '@/lib/game/types';
@@ -30,6 +31,15 @@ export default function Page() {
     if (useGame.getState().visible === null) void restore();
   }, [restore]);
 
+  // どの画面からも 1 クリックで到達できる位置に置く（FR-025）
+  const credits = (
+    <footer className="border-t border-neutral-900 pt-3">
+      <Link className="text-xs underline opacity-50" href="/credits">
+        クレジット
+      </Link>
+    </footer>
+  );
+
   const restart = (
     <button
       type="button"
@@ -53,6 +63,7 @@ export default function Page() {
         ) : (
           <p className="opacity-70">……</p>
         )}
+        {credits}
       </main>
     );
   }
@@ -85,6 +96,7 @@ export default function Page() {
         >
           対峙する
         </button>
+        {credits}
       </main>
     );
   }
@@ -226,6 +238,8 @@ export default function Page() {
           {restart}
         </section>
       )}
+
+      {credits}
     </main>
   );
 }
