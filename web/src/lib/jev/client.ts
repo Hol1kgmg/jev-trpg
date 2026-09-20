@@ -77,7 +77,6 @@ export async function judge(
       questions: questions(clearConditionDescription),
       maxRetries: 0,
       abortSignal: AbortSignal.timeout(jevTimeoutMs),
-      providerOptions: { gateway: { zeroDataRetention: true } },
     });
     return normalizeJudgment(result);
   } catch {

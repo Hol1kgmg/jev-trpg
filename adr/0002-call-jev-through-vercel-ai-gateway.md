@@ -27,7 +27,6 @@ await evaluate({
   questions,
   maxRetries: 0,
   abortSignal: AbortSignal.timeout(5000),
-  providerOptions: { gateway: { zeroDataRetention: true } },
 });
 ```
 
@@ -47,7 +46,6 @@ await evaluate({
 - Good, because 既に使っている Vercel のアカウントと請求だけで Jev に到達できる。TypeSafe のアカウントが要らない
 - Good, because 本番でキーの管理が要らない（OIDC トークンが自動注入される）
 - Good, because 依存が `ai` 1 つで済む。プロバイダインスタンスを明示しても結果は同じなので、依存を増やす分だけ損になる
-- Good, because `zeroDataRetention` を付けられるため、プレイヤーの入力が Gateway 側に残らない
 - Bad, because `experimental_evaluate` は名前のとおり実験的で、`ai` のマイナー更新で壊れうる。`ai` はマイナー版まで固定し、更新は `just eval-jev` を流してから行う
 - Bad, because Gateway の障害がそのままゲームの劣化（全ターンが `ambiguous`）に直結する。ただし停止はしない
 - Neutral, because 破壊的変更の影響範囲は `client.ts` 1 ファイルに閉じている
@@ -78,6 +76,7 @@ await evaluate({
 - **`@ai-sdk/gateway` のプロバイダインスタンスを明示する**: モデル ID の文字列指定と結果が同じで、依存が 1 つ増えるだけ
 - **生の HTTP で叩く**: 型が落ちるだけで得がない
 - **確信度が低ければ再問い合わせ**: Constitution II（1ターン1回）に反する。低確信度は `ambiguous` というゲーム内の結果に写す
+- **`zeroDataRetention` を付ける**: 当初は Gateway 経由の利点として数えていたが、採用理由から外した。このゲームはプレイヤーに個人情報の入力を求めず、行動の詳細を書かせるだけで、プレイヤー向けのデータ保持の表明もしていない。守る対象がないフラグだった。加えて Vercel の Hobby プランでは ZDR に対応しておらず、現在の契約では指定しても効かない。有料プランに移り、かつ保持されて困る入力を扱うようになったら、そのときに入れ直す
 
 ## More Information
 

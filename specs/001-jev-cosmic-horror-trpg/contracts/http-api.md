@@ -122,8 +122,6 @@ Jev の呼び出しが例外・タイムアウト（5 秒）・スキーマ不�
 - `AI_GATEWAY_API_KEY`（ローカル開発）と `SEAL_KEY` はサーバー側の環境変数にのみ置く。
   `NEXT_PUBLIC_` 接頭辞を付けてはならない。Vercel 上では `VERCEL_OIDC_TOKEN` が
   自動注入されるため、Gateway 用のキーを設定する必要はない
-- Jev の呼び出しには `providerOptions: { gateway: { zeroDataRetention: true } }` を付け、
-  プレイヤーの入力文字列が Gateway 側に保持されないようにする
 - プレイヤーの入力文字列は Jev の `state.action.detail` に値として渡すだけで、
   `instructions` や `criteria` に連結してはならない（Constitution の指示注入対策）
 - `meta_cheat` が真でも、クリア条件・怪異の正体はレスポンスに含めない。

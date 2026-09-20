@@ -87,7 +87,6 @@ CC ライセンス素材のみで、`web/src/data/assets.ts` の `AssetEntry[]` 
   プロバイダ抽象は追加せず、参照するモデルは Jev のみ（research.md R-001）
 - `ai` はマイナー版まで固定する（`experimental_evaluate` への依存のため）
 - `AI_GATEWAY_API_KEY` / `SEAL_KEY` はサーバー側のみ。`NEXT_PUBLIC_` を付けない
-- Jev 呼び出しに `providerOptions: { gateway: { zeroDataRetention: true } }` を付ける
 - クライアントから来た封緘状態は GCM の認証タグで検証してから処理する
 - `meta_cheat` は判定結果として扱い、入力文字列を `instructions` に連結しない
 

@@ -94,7 +94,7 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 ## Phase 2: Jev の実接続（M1）
 
 - [X] T013 [P] [US1] `web/src/lib/jev/questions.ts` に 6 問を contracts/jev-questions.md のとおりプレーンオブジェクトで定義する（`choice` 1 / `score` 2 / `boolean` 3）。`action_type` は**含めない**（プレイヤーの 4 択で確定するため。FR-030）。`clearCondition` を受け取って `meets_clear` の `instructions` に埋め込む関数形にする
-- [X] T014 [US1] `web/src/lib/jev/client.ts` の `judge(state): Promise<Judgment>` に実 API 経路を実装する（`JEV_STUB` が `'1'` でないとき通る側。スタブ分岐は残す）。`experimental_evaluate({ model: 'typesafe-ai/jev', state, questions, providerOptions: { gateway: { zeroDataRetention: true } } })` を**1 回だけ**呼び、5 秒でタイムアウトする。`confidence` は `providerMetadata.typesafe.confidence.skill`（欠損時 `0`）。失敗時は再試行せず contracts/http-api.md のフォールバック `Judgment` を返す（Constitution II）
+- [X] T014 [US1] `web/src/lib/jev/client.ts` の `judge(state): Promise<Judgment>` に実 API 経路を実装する（`JEV_STUB` が `'1'` でないとき通る側。スタブ分岐は残す）。`experimental_evaluate({ model: 'typesafe-ai/jev', state, questions })` を**1 回だけ**呼び、5 秒でタイムアウトする。`confidence` は `providerMetadata.typesafe.confidence.skill`（欠損時 `0`）。失敗時は再試行せず contracts/http-api.md のフォールバック `Judgment` を返す（Constitution II）
 - [X] T015 [P] [US1] `web/src/lib/jev/client.test.ts` に `judge()` の正規化テストとフォールバックテストを書く: `ai/test` の `Experimental_EvaluationMockModelV4` で応答を差し替え、contracts/jev-questions.md の写像表どおりに `Judgment` へ変換されること、`providerMetadata` 欠損時に `confidence` が `0` になること、例外・タイムアウト・スキーマ不一致で `source: 'fallback'` かつ `confidence: 0` の `Judgment` が返ること（SC-006）
 - [X] T016 [US1] 既存テストを改訂後の形に更新する: `web/src/lib/game/resolve.test.ts`（`resolveTurn` の新しい引数、`observe` 成功で手がかりが増えること）、`web/src/lib/game/ending.test.ts`（`timeout` が `turn > 8`）、`web/src/lib/game/turn.e2e.test.ts`（8 ターン通し、4 つの終了理由すべてに到達）
 

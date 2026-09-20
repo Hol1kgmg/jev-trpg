@@ -32,7 +32,7 @@ const fullAnswers = (over: Partial<Answers> = {}): Answers => ({
 });
 
 /** doEvaluate を差し替えたモデルと、呼び出しを数えるスパイを返す */
-function mock(doEvaluate: (options: { abortSignal?: AbortSignal; providerOptions?: unknown }) => unknown) {
+function mock(doEvaluate: (options: { abortSignal?: AbortSignal }) => unknown) {
   const spy = vi.fn(doEvaluate);
   const model = new MockEvaluationModel({
     provider: 'typesafe-ai',
@@ -109,7 +109,7 @@ describe('judge の正規化', () => {
     expect(judgment.source).toBe('jev'); // 応答自体は成立しているのでフォールバックではない
   });
 
-  it('zeroDataRetention と中断シグナルを付けて呼ぶ', async () => {
+  it('中断シグナルを付けて呼ぶ', async () => {
     const { model, spy } = mock(() => ({
       answers: fullAnswers(),
       warnings: [],
@@ -119,7 +119,6 @@ describe('judge の正規化', () => {
     await judge(state, 'cc', model);
 
     const options = spy.mock.calls[0][0];
-    expect(options.providerOptions).toEqual({ gateway: { zeroDataRetention: true } });
     expect(options.abortSignal).toBeInstanceOf(AbortSignal);
   });
 });

@@ -20,7 +20,6 @@ const result = await evaluate({
   model: 'typesafe-ai/jev',
   state,
   questions,
-  providerOptions: { gateway: { zeroDataRetention: true } },
 });
 ```
 
