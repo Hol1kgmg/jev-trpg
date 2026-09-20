@@ -32,6 +32,10 @@ export const confidenceThresholds = {
 
 export const maxTurn = 8;
 
+/** HP と正気度の上限。開始時はどちらも上限値ちょうど（data-model.md Investigator） */
+export const maxHp = 10;
+export const maxSanity = 10;
+
 /** 怪異の段階の境界。turn から導出する（data-model.md EntityStage） */
 export const stageThresholds = { appearance: 3, agitation: 6 } as const;
 

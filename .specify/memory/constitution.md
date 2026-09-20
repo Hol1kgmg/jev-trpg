@@ -1,23 +1,24 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Modified principles: なし（5原則の本文に変更なし）
-- Modified sections:
-  - 技術制約とセキュリティ境界: Jev の呼び出し経路を公式 SDK 直アクセスから
-    Vercel AI Gateway 経由（AI SDK の experimental_evaluate、モデル ID
-    `typesafe-ai/jev`）に変更。理由は TypeSafe のアカウントを開設できないため。
-    秘匿値は `TYPESAFE_API_KEY` → `AI_GATEWAY_API_KEY`（ローカル）/
-    `VERCEL_OIDC_TOKEN`（Vercel 本番、自動注入）に置き換わる。
+- Version change: 1.1.0 → 1.2.0
+- Modified principles:
+  - V. MVP 優先・YAGNI: 想定プレイ時間を「1プレイ15〜20分」から「1プレイ8〜12分」に
+    改定。spec.md SC-002 と plan.md が 8〜12分で確定しており、最大ターン数も 12 → 8 に
+    縮めたため、原則側の数値だけが実態と矛盾していた。あわせて「シナリオ1本」を
+    「単一の対峙で完結する1人用 Web ゲーム」に改める（探索・場所・マップの廃止を反映）。
+- Modified sections: なし
 - Added sections: なし
 - Removed sections: なし
 - 影響範囲:
-  - specs/001-jev-cosmic-horror-trpg/ の research.md (R-001/R-002/R-004),
-    contracts/jev-questions.md, plan.md, quickstart.md を同 PR で更新済み
-  - 実装コードは未着手のため影響なし
+  - specs/001-jev-cosmic-horror-trpg/ の spec.md SC-002 / plan.md と一致する。両者の更新は不要
+  - 実装コードへの影響なし（最大ターン数は web/src/lib/game/tuning.ts で既に 8）
 - 過去の版:
+  - 1.1.0 (2026-09-20): Jev の呼び出し経路を Vercel AI Gateway 経由に変更
   - 1.0.0 (2026-09-20): 初版採択。5原則 + 技術制約 + 開発ワークフロー
 - Follow-up TODOs:
   - TODO(RATIFICATION_DATE): 初版採択日を 2026-09-20 と仮置き。実際の合意日が異なる場合は訂正すること。
+  - 原則 I の例示に残る `action_type` は、spec 改訂（FR-030、行動種別はプレイヤーの4択で確定）
+    により Jev への質問から外れている。次の改定で例示を差し替えること。
 -->
 
 # jev-trpg Constitution
@@ -63,7 +64,7 @@ Vitest のテストを置く。Jev の判定精度そのものの検証は、ゲ
 
 ### V. MVP 優先・YAGNI
 
-スコープはシナリオ1本・1プレイ15〜20分の1人用 Web ゲームに固定する。
+スコープは単一の対峙で完結する・1プレイ8〜12分の1人用 Web ゲームに固定する。
 マルチプレイ、シナリオエディタ、サーバー永続化、複数 LLM プロバイダ対応などは
 MVP の完成まで実装してはならない。抽象化は 2 つ目の実装が現れてから導入する。
 単一実装のインターフェース、変化しない値のための設定機構は追加しない。
@@ -113,4 +114,4 @@ PATCH は文言の明確化・誤記修正など意味を変えない修正。
 原則から逸脱する実装は、逸脱の理由と、より単純な代替が不十分である根拠を
 PR に明記しなければならない。実行時の開発ガイダンスは AGENTS.md を参照する。
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-20
+**Version**: 1.2.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-20

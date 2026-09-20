@@ -270,8 +270,8 @@ T026〜T028 を終えておく**と、登録漏れがその場でテストに落
 **Purpose**: 現状のコードを spec.md / plan.md / Constitution に突き合わせて残った差分。
 既存の未完了タスク（T013〜T039）が扱う範囲は含めない。
 
-- [ ] T040 `web/src/lib/game/visible.test.ts` を追加し、`toVisible` が怪異の `nature` / `purpose` / `weakness` / `manifestation`、`clearCondition` の全フィールド、未入手 `Clue` の本文、探索者の `secret` を投影に含めないことを検証する per FR-003 / FR-027 / SC-008 (missing)
-- [ ] T041 `web/src/app/api/turn/route.test.ts` を追加し、Route Handler の異常系を検証する: 200 文字超・不正な `direction` で `400 invalid_action`、改竄された封緘文字列で `400 invalid_state`、`turn` 不一致で `409 turn_mismatch`（いずれも状態を更新しないこと）per FR-016 / Edge「同一ターン内に送信が重複」「詳細入力が極端に長い」 (missing)
-- [ ] T042 `adr/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
-- [ ] T043 `.specify/memory/constitution.md` の原則 V「1プレイ15〜20分」を spec.md SC-002 / plan.md の「8〜12分」に合わせて改定する（Governance の改定手順に従い、バージョンと Sync Impact Report を更新する）per Constitution V vs SC-002 (contradicts)
-- [ ] T044 `web/src/lib/game/resolve.ts` がハードコードしている HP・正気度の上限 `10` を `web/src/lib/game/tuning.ts` の定数に移し、`resolve.ts` から参照する per plan.md「tuning.ts = 暫定値の集約点」 (partial)
+- [X] T040 `web/src/lib/game/visible.test.ts` を追加し、`toVisible` が怪異の `nature` / `purpose` / `weakness` / `manifestation`、`clearCondition` の全フィールド、未入手 `Clue` の本文、探索者の `secret` を投影に含めないことを検証する per FR-003 / FR-027 / SC-008 (missing)
+- [X] T041 `web/src/app/api/turn/route.test.ts` を追加し、Route Handler の異常系を検証する: 200 文字超・不正な `direction` で `400 invalid_action`、改竄された封緘文字列で `400 invalid_state`、`turn` 不一致で `409 turn_mismatch`（いずれも状態を更新しないこと）per FR-016 / Edge「同一ターン内に送信が重複」「詳細入力が極端に長い」 (missing)
+- [X] T042 `adr/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
+- [X] T043 `.specify/memory/constitution.md` の原則 V「1プレイ15〜20分」を spec.md SC-002 / plan.md の「8〜12分」に合わせて改定する（Governance の改定手順に従い、バージョンと Sync Impact Report を更新する）per Constitution V vs SC-002 (contradicts)
+- [X] T044 `web/src/lib/game/resolve.ts` がハードコードしている HP・正気度の上限 `10` を `web/src/lib/game/tuning.ts` の定数に移し、`resolve.ts` から参照する per plan.md「tuning.ts = 暫定値の集約点」 (partial)

@@ -5,7 +5,7 @@
 import { entityMotifs, itemPool, occupations, secrets } from '@/data/scenarios';
 import { STATE_VERSION } from '../seal';
 import { pick, type Rng } from './narrate';
-import { generationRetryLimit } from './tuning';
+import { generationRetryLimit, maxHp, maxSanity } from './tuning';
 import { SKILL_IDS, type Clue, type GameState, type SkillId } from './types';
 
 const clueId = (index: number) => `c-${String(index + 1).padStart(2, '0')}`;
@@ -56,8 +56,8 @@ function attempt(rng: Rng): GameState | null {
       skills,
       items: sample(itemPool, intBetween(1, 3, rng), rng),
       secret: pick(secrets, rng),
-      hp: 10,
-      sanity: 10,
+      hp: maxHp,
+      sanity: maxSanity,
     },
     entity: {
       epithet: pick(motif.epithets, rng),

@@ -7,6 +7,8 @@ import {
   confidenceThresholds,
   fumbleFloor,
   hpLoss,
+  maxHp,
+  maxSanity,
   plausibilityMod,
   rateMax,
   rateMin,
@@ -80,8 +82,8 @@ export function resolveTurn(
 
   const hpDelta = -hpLoss(outcome, direction);
   const sanityDelta = -sanityLoss(outcome, judgment.horrorExposure);
-  const hp = clamp(state.investigator.hp + hpDelta, 0, 10);
-  const sanity = clamp(state.investigator.sanity + sanityDelta, 0, 10);
+  const hp = clamp(state.investigator.hp + hpDelta, 0, maxHp);
+  const sanity = clamp(state.investigator.sanity + sanityDelta, 0, maxSanity);
 
   const narration = narrateOutcome(state, direction, outcome, rng, {
     clueText: acquiredClueId ? state.clues[acquiredClueId].text : undefined,
