@@ -112,6 +112,8 @@ type EntityStage = 'appearance' | 'agitation' | 'frenzy';
 | `acquiredClueIds` | `string[]` |
 | `log` | `LogEntry[]` |
 | `ending` | `Ending \| null` |
+| `previews?` | `number`（今のターンに事前判定を走らせた回数。ターンが進むと 0。ADR 0004） |
+| `preview?` | `{ direction; detail; judgment: Judgment } \| null`（直近の事前判定。ターンが進むと消える） |
 
 待機画面かセッション中かを表す `phase` は**封緘状態に含めない**。両者で開示される情報は
 同じで、`phase` が守るものが何もないため、クライアント（Zustand + localStorage）が
@@ -150,10 +152,21 @@ type LogEntry = {
   direction: Direction;       // プレイヤーが選んだ方向性
   detail: string;             // 添えられた詳細（空文字もありうる）
   outcome: Outcome;
-  check?: { skill: SkillId; rate: number; roll: number }; // d100 を振ったターンのみ（FR-009a）
+  check?: Check;              // d100 を振ったターンのみ（FR-009a）
   narration: string;          // テンプレート展開済み
   delta: { hp: number; sanity: number; clueId: string | null };
 };
+
+// 成功率の内訳。事前判定と実行後ログで同じ形（ADR 0004）
+// rate = clamp(base + plausibility + weakness, rateMin, rateMax)
+type RateBreakdown = {
+  skill: SkillId;
+  base: number;         // 技能値
+  plausibility: number; // plausibilityMod（負もありうる）
+  weakness: number;     // 弱点ボーナス。乗らなければ 0
+  rate: number;
+};
+type Check = Partial<RateBreakdown> & { skill: SkillId; rate: number; roll: number }; // 内訳は旧封緘データでは欠けうる
 ```
 
 ### Judgment（Jev の解釈結果）
@@ -229,7 +242,7 @@ type Ending = {
    hp     -= hpLoss(outcome, direction)
    outcome が成功系 かつ direction = 'observe' かつ
      未入手の手がかりが残っている → 1 つ入手する
-   turn += 1
+   turn += 1、previews = 0、preview = null
 4. 終了判定（下記）
 5. 描写テンプレートを選択して log に追加
 出力: GameState

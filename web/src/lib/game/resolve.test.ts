@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixedGameState } from './fixture';
-import { resolveTurn, successRate } from './resolve';
+import { previewBreakdown, rateBreakdown, resolveTurn, successRate } from './resolve';
 import { plausibilityMod, rateMax, rateMin, weaknessBonus } from './tuning';
 import type { GameState, Judgment } from './types';
 
@@ -52,6 +52,22 @@ describe('successRate', () => {
   });
 });
 
+describe('rateBreakdown / previewBreakdown（ADR 0004）', () => {
+  it('内訳の和が rate と一致する', () => {
+    const state: GameState = { ...fixedGameState(), acquiredClueIds: ['c-02'] };
+    const b = rateBreakdown(state, { ...baseJudgment, plausibility: 3, exploitsWeakness: true });
+    expect(b).toEqual({ skill: 'investigate', base: 65, plausibility: 15, weakness: 20, rate: 95 });
+    expect(b.base + b.plausibility + b.weakness).toBeGreaterThanOrEqual(b.rate); // クランプ
+  });
+
+  it('ロールしない判定では null（見せる補正がない）', () => {
+    const state = fixedGameState();
+    expect(previewBreakdown(state, { ...baseJudgment, confidence: 0.4 })).toBeNull();
+    expect(previewBreakdown(state, { ...baseJudgment, metaCheat: true })).toBeNull();
+    expect(previewBreakdown(state, baseJudgment)?.rate).toBe(65);
+  });
+});
+
 describe('resolveTurn', () => {
   it('roll <= ceil(rate/5) で critical_success', () => {
     const state = fixedGameState(); // rate 65 → 境界は 13
@@ -75,9 +91,27 @@ describe('resolveTurn', () => {
     expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(100)).outcome).toBe('fumble');
   });
 
-  it('ロールしたターンは技能・目標値・出目をログに残す', () => {
+  it('ロールしたターンは技能・目標値の内訳・出目をログに残す', () => {
     const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(42));
-    expect(result.state.log[0].check).toEqual({ skill: 'investigate', rate: 65, roll: 42 });
+    expect(result.state.log[0].check).toEqual({
+      skill: 'investigate',
+      base: 65,
+      plausibility: 0,
+      weakness: 0,
+      rate: 65,
+      roll: 42,
+    });
+  });
+
+  it('ターンが進むと事前判定は消える（ADR 0004）', () => {
+    const state: GameState = {
+      ...fixedGameState(),
+      previews: 3,
+      preview: { direction: 'observe', detail: '', judgment: baseJudgment },
+    };
+    const result = resolveTurn(state, 'observe', '', baseJudgment, rollOnce(42));
+    expect(result.state.previews).toBe(0);
+    expect(result.state.preview).toBeNull();
   });
 
   it('ロールしないターンには check が付かない', () => {

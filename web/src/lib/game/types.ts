@@ -68,8 +68,26 @@ export type Clue = {
   hints: ('nature' | 'purpose' | 'weakness')[];
 };
 
-/** d100 判定の内訳。プレイヤーに開示する */
-export type Check = { skill: SkillId; rate: number; roll: number };
+/**
+ * 成功率の内訳。プレイヤーに開示する（事前判定と実行後ログで同じ形）。
+ * rate = clamp(base + plausibility + weakness, rateMin, rateMax)
+ */
+export type RateBreakdown = {
+  skill: SkillId;
+  /** 技能値 */
+  base: number;
+  /** plausibility による補正（負もありうる） */
+  plausibility: number;
+  /** 弱点ボーナス。乗らなければ 0 */
+  weakness: number;
+  rate: number;
+};
+
+/** d100 判定の内訳。内訳の各項は旧封緘データでは欠けうる */
+export type Check = Partial<RateBreakdown> & { skill: SkillId; rate: number; roll: number };
+
+/** 事前判定の結果。同じ方針・詳細で実行されたときだけ再利用する（ADR 0004） */
+export type Preview = { direction: Direction; detail: string; judgment: Judgment };
 
 export type LogEntry = {
   turn: number;
@@ -104,6 +122,10 @@ export type GameState = {
   acquiredClueIds: string[];
   log: LogEntry[];
   ending: Ending | null;
+  /** 今のターンに事前判定を走らせた回数。ターンが進むと 0 に戻る。旧封緘データでは欠けうる */
+  previews?: number;
+  /** 直近の事前判定。ターンが進むと消える */
+  preview?: Preview | null;
 };
 
 /** GameState から秘密を落とした投影 */

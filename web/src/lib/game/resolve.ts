@@ -15,7 +15,15 @@ import {
   sanityLoss,
   weaknessBonus,
 } from './tuning';
-import type { Check, Direction, GameState, Judgment, LogEntry, Outcome } from './types';
+import type {
+  Check,
+  Direction,
+  GameState,
+  Judgment,
+  LogEntry,
+  Outcome,
+  RateBreakdown,
+} from './types';
 
 export type TurnDelta = { hp: number; sanity: number; clueId: string | null };
 
@@ -28,16 +36,32 @@ export type TurnResult = {
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
-/** rate = clamp(skill + plausibilityMod + weaknessBonus, 5, 95) */
-export function successRate(state: GameState, judgment: Judgment): number {
-  const skill = state.investigator.skills[judgment.skill];
+/** rate = clamp(skill + plausibilityMod + weaknessBonus, 5, 95)。内訳ごと返す */
+export function rateBreakdown(state: GameState, judgment: Judgment): RateBreakdown {
+  const base = state.investigator.skills[judgment.skill];
   const plausible = clamp(Math.round(judgment.plausibility), 0, 4);
 
   const acquired = new Set(state.acquiredClueIds);
   const knowsWeakness = state.entity.weakness.requiredClueIds.every((id) => acquired.has(id));
-  const bonus = judgment.exploitsWeakness && knowsWeakness ? weaknessBonus : 0;
+  const weakness = judgment.exploitsWeakness && knowsWeakness ? weaknessBonus : 0;
 
-  return clamp(skill + plausibilityMod[plausible] + bonus, rateMin, rateMax);
+  const plausibility = plausibilityMod[plausible];
+  return {
+    skill: judgment.skill,
+    base,
+    plausibility,
+    weakness,
+    rate: clamp(base + plausibility + weakness, rateMin, rateMax),
+  };
+}
+
+export const successRate = (state: GameState, judgment: Judgment): number =>
+  rateBreakdown(state, judgment).rate;
+
+/** 事前判定でプレイヤーに見せる内訳。ロールしない判定（ambiguous / meta / fallback）は null */
+export function previewBreakdown(state: GameState, judgment: Judgment): RateBreakdown | null {
+  if (judgment.metaCheat || judgment.confidence < confidenceThresholds.ambiguous) return null;
+  return rateBreakdown(state, judgment);
 }
 
 function rollOutcome(
@@ -45,9 +69,10 @@ function rollOutcome(
   judgment: Judgment,
   rng: Rng,
 ): { outcome: Outcome; check: Check } {
-  const rate = successRate(state, judgment);
+  const breakdown = rateBreakdown(state, judgment);
+  const { rate } = breakdown;
   const roll = Math.floor(rng() * 100) + 1;
-  const check = { skill: judgment.skill, rate, roll };
+  const check = { ...breakdown, roll };
   if (roll >= fumbleFloor) return { outcome: 'fumble', check };
   if (roll <= Math.ceil(rate / 5)) return { outcome: 'critical_success', check };
   if (roll <= rate) return { outcome: 'success', check };
@@ -99,6 +124,9 @@ export function resolveTurn(
     ...state,
     investigator: { ...state.investigator, hp, sanity },
     turn: state.turn + 1,
+    // 事前判定は 1 ターン限り（ADR 0004）
+    previews: 0,
+    preview: null,
     acquiredClueIds: acquiredClueId
       ? [...state.acquiredClueIds, acquiredClueId]
       : state.acquiredClueIds,

@@ -2,7 +2,7 @@
 
 **Branch**: `001-jev-cosmic-horror-trpg`
 
-エンドポイントは 2 本。どちらも `POST`、`Content-Type: application/json`。
+エンドポイントは 3 本。すべて `POST`、`Content-Type: application/json`。
 待機画面からセッションへの遷移はクライアント内の状態変化だけで完結するため、
 そのためのエンドポイントは置かない（data-model.md「セッション開始」）。
 秘密の開封鍵はサーバーにしかないため、生成もターン処理もサーバー側で行う（research.md R-008）。
@@ -36,9 +36,40 @@
 
 ---
 
+## `POST /api/preview`
+
+事前判定（[ADR 0004](../../../adr/jev-trpg/0004-preview-dice-modifier-before-commit.md)）。
+Jev を 1 回呼び、成功率の内訳だけを返す。ゲーム状態は進まない。
+リクエストの形と検証は `/api/turn` と同じ。
+
+**200 Response**
+
+```json
+{
+  "sealed": "<opaque string>",
+  "previews": 3,
+  "rate": { "skill": "investigate", "base": 65, "plausibility": 15, "weakness": 20, "rate": 95 }
+}
+```
+
+- `sealed`: 判定回数と `Judgment` を書き込んだ封緘。クライアントは以降これを送る
+- `previews`: このターンに走らせた事前判定の回数（上限は `tuning.ts` の `previewLimit`）
+- `rate`: `RateBreakdown`。ロールしない判定（ambiguous / meta / フォールバック）では `null`。
+  恐怖の負荷・クリア条件の充足・弱点の空振り理由は**返さない**（FR-003）
+
+**400 / 409**: `/api/turn` と同じ。決着後も `409 turn_mismatch`。
+
+**429 Response**: `{ "error": "preview_exhausted", "previews": 10 }`
+上限に達している。封緘は返さない。クライアントは入力を固定し、最後の判定で `/api/turn` を呼ぶ。
+
+フォールバックになった判定は封緘に残さない（`previews` は数える）。`/api/turn` で判定し直す。
+
+---
+
 ## `POST /api/turn`
 
-1 ターンを処理する。Jev の呼び出しはこのハンドラ内で**ちょうど 1 回**（Constitution II）。
+1 ターンを処理する。封緘に事前判定が残っていて `direction` / `detail` が一致すればそれを使い、
+Jev は呼ばない。一致しなければこのハンドラ内で**ちょうど 1 回**呼ぶ（Constitution II）。
 
 **Request**
 

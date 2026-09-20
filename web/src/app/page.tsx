@@ -3,12 +3,16 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
+import { previewDebounceMs } from '@/lib/game/tuning';
+import { defaultSkill } from '@/lib/jev/stub';
 import {
   DIRECTIONS,
+  type Check,
   type Clue,
   type Direction,
   type Ending,
   type LogEntry,
+  type RateBreakdown,
   type SkillId,
   type VisibleState,
 } from '@/lib/game/types';
@@ -111,19 +115,27 @@ function Epithet({ children, className = '' }: { children: string; className?: s
 }
 
 // 技能・所持品の書式を 1 箇所にまとめる。lg 未満は畳み、待機画面とサイドでは開いたまま
+// `lit` は補正の基礎になる技能。方針を選んだ時点で光らせ、どの数字が効くかを先に示す
 function Investigator({
   visible,
+  lit = null,
   collapsible = false,
 }: {
   visible: VisibleState;
+  lit?: SkillId | null;
   collapsible?: boolean;
 }) {
   const body = (
     <div className="grid gap-1 pt-2 text-xs text-dim">
-      <p className="tabular-nums">
-        {(Object.keys(skillLabels) as SkillId[])
-          .map((id) => `${skillLabels[id]} ${visible.skills[id]}`)
-          .join('　')}
+      <p className="flex flex-wrap gap-x-4 tabular-nums">
+        {(Object.keys(skillLabels) as SkillId[]).map((id) => (
+          <span
+            key={id}
+            className={`transition-colors ${id === lit ? 'animate-pulse text-gold' : ''}`}
+          >
+            {skillLabels[id]} {visible.skills[id]}
+          </span>
+        ))}
       </p>
       <p>所持品: {visible.items.join('、')}</p>
     </div>
@@ -162,11 +174,21 @@ const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
   fumble: '致命的失敗',
 };
 
+const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
+
+// 成功率の内訳。Jev の解釈（技能・妥当性・弱点）がどこで効いたかを数字で見せる（ADR 0004）。
+// 内訳を持たない旧ログでは目標値だけになる
+function rateText(r: RateBreakdown | Check): string {
+  if (r.base === undefined) return `${skillLabels[r.skill]} ${r.rate}`;
+  const parts = [`${skillLabels[r.skill]} ${r.base}`, `妥当性 ${signed(r.plausibility ?? 0)}`];
+  if (r.weakness) parts.push(`弱点 ${signed(r.weakness)}`);
+  return `${parts.join(' ')} ＝ ${r.rate}`;
+}
+
 // 判定は d100 の下方ロール。どの技能で、目標値いくつに対して、何が出たかを 1 行で示す
 function checkText(entry: LogEntry): string | null {
   if (!entry.check) return null;
-  const { skill, rate, roll } = entry.check;
-  return `${skillLabels[skill]} ${rate}　→　出目 ${roll}　${OUTCOME_LABEL[entry.outcome] ?? ''}`;
+  return `${rateText(entry.check)}　→　出目 ${entry.check.roll}　${OUTCOME_LABEL[entry.outcome] ?? ''}`;
 }
 
 function LogArticle({ entry }: { entry: LogEntry }) {
@@ -310,9 +332,40 @@ function Backdrop() {
 }
 
 export default function Page() {
-  const { visible: live, phase, sending, error, newGame, restore, startSession, submit } = useGame();
+  const {
+    visible: live,
+    phase,
+    sending,
+    error,
+    previewing,
+    preview,
+    previewExhausted,
+    newGame,
+    restore,
+    startSession,
+    requestPreview,
+    submit,
+  } = useGame();
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
+
+  // 入力が止まってから一定時間で事前判定。入力が変われば取り消して数え直す（ADR 0004）
+  useEffect(() => {
+    if (direction === null || phase !== 'playing' || previewing) return;
+    const sent = detail.trim();
+    if (preview?.direction === direction && preview.detail === sent) return;
+    const id = setTimeout(() => void requestPreview(direction, sent), previewDebounceMs);
+    return () => clearTimeout(id);
+    // previewing を含めるのは、通信中に入力が変わったとき、終わってから数え直すため
+  }, [direction, detail, phase, preview, previewing, requestPreview]);
+  // 表示するのは今の入力に対する判定だけ。古い判定は出さない
+  const shownPreview =
+    direction !== null && preview?.direction === direction && preview.detail === detail.trim()
+      ? preview
+      : null;
+  // 光らせる技能。事前判定が返るまでは方針の既定技能、返ったら Jev が実際に選んだ技能
+  const litSkill =
+    direction === null ? null : (shownPreview?.rate?.skill ?? defaultSkill[direction]);
   const [reveal, setReveal] = useState<LogEntry | null>(null);
   // モーダルで結果を見せ終えるまで、送信前の状態のまま描く（ログ・調書・情景が先に動かないように）
   const [frozen, setFrozen] = useState<VisibleState | null>(null);
@@ -429,7 +482,7 @@ export default function Page() {
           <Gauge label="HP" value={visible.hp} max={10} />
           <Gauge label="正気度" value={visible.sanity} max={10} />
         </div>
-        <Investigator visible={visible} collapsible />
+        <Investigator visible={visible} lit={litSkill} collapsible />
       </header>
 
       {/* ゲーム情報とプレイヤー情報。手がかりはターンごとに伸びて行動の直前に読むものなので入れない */}
@@ -439,7 +492,7 @@ export default function Page() {
           <Vitals visible={visible} className="pt-3" />
         </section>
         <section className={PANEL}>
-          <Investigator visible={visible} />
+          <Investigator visible={visible} lit={litSkill} />
         </section>
       </aside>
 
@@ -566,9 +619,26 @@ export default function Page() {
                     maxLength={200}
                     value={detail}
                     onChange={(e) => setDetail(e.target.value)}
-                    disabled={sending}
+                    // 上限に達したら入力を固定する。直前の判定で確定する
+                    disabled={sending || previewExhausted}
                     autoFocus
                   />
+                  {/* 事前判定の状態を常に 1 行で示す: 入力待ち → 測定中 → 結果。
+                      見せるのはダイス補正だけ。ロールしない判定は「……」 */}
+                  <p className="min-h-4 font-display text-xs tabular-nums tracking-wider text-dim">
+                    {shownPreview ? (
+                      <>
+                        <span className="text-forest-light">測定結果　</span>
+                        {shownPreview.rate ? rateText(shownPreview.rate) : '……'}
+                      </>
+                    ) : previewExhausted ? (
+                      'これ以上は測れない'
+                    ) : previewing ? (
+                      <span className="animate-flicker text-gold">判定を測定中……</span>
+                    ) : (
+                      '入力待ち'
+                    )}
+                  </p>
                   <div className="flex gap-2">
                     <Btn primary type="submit" disabled={sending}>
                       決定

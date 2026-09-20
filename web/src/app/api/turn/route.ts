@@ -1,28 +1,12 @@
-// 検証 → unseal → judge() を 1 回 → resolveTurn → checkEnding → 再封緘（contracts/http-api.md）。
-// プレイヤーの入力文字列は state.action.detail に値として渡すだけで、instructions へ連結しない。
+// 検証 → unseal → judge() → resolveTurn → checkEnding → 再封緘（contracts/http-api.md）。
+// 事前判定（/api/preview）が同じ方針・詳細で残っていればそれを使い、Jev は呼ばない（ADR 0004）。
 
 import { turnRequest } from '@/lib/api/schema';
-import { narrateScene } from '@/lib/game/narrate';
 import { resolveTurn } from '@/lib/game/resolve';
-import type { Direction, GameState, JevState } from '@/lib/game/types';
 import { toVisible } from '@/lib/game/visible';
 import { judge } from '@/lib/jev/client';
+import { jevState } from '@/lib/jev/state';
 import { seal, unseal } from '@/lib/seal';
-
-function jevState(state: GameState, direction: Direction, detail: string): JevState {
-  return {
-    scene: narrateScene(state, Math.random),
-    investigator: {
-      occupation: state.investigator.occupation,
-      skills: state.investigator.skills,
-      items: state.investigator.items,
-      hp: state.investigator.hp,
-      sanity: state.investigator.sanity,
-    },
-    acquiredClues: state.acquiredClueIds.map((id) => state.clues[id].text),
-    action: { direction, detail },
-  };
-}
 
 export async function POST(request: Request) {
   const parsed = turnRequest.safeParse(await request.json().catch(() => null));
@@ -52,7 +36,11 @@ export async function POST(request: Request) {
     return Response.json({ error: 'turn_mismatch' }, { status: 409 });
   }
 
-  const judgment = await judge(jevState(state, direction, detail), state.clearCondition.description);
+  const preview = state.preview;
+  const reused = preview?.direction === direction && preview.detail === detail;
+  const judgment = reused
+    ? preview.judgment
+    : await judge(jevState(state, direction, detail), state.clearCondition.description);
   const result = resolveTurn(state, direction, detail, judgment, Math.random);
 
   return Response.json({

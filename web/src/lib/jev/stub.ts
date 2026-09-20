@@ -12,8 +12,8 @@ const skillKeywords: { skill: SkillId; words: string[] }[] = [
   { skill: 'stealth', words: ['隠れ', '潜', '息を殺'] },
 ];
 
-/** キーワードに当たらなかったときの、方向性ごとの既定技能 */
-const defaultSkill: Record<Direction, SkillId> = {
+/** キーワードに当たらなかったときの、方向性ごとの既定技能。UI も事前判定が返るまでの目安に使う */
+export const defaultSkill: Record<Direction, SkillId> = {
   observe: 'investigate',
   attack: 'combat',
   engage: 'persuade',
