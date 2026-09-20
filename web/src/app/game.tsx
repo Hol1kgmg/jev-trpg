@@ -521,7 +521,8 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   return (
     // PC とスマートフォン縦画面の 2 系統に留める（plan.md）。lg 未満は上端の sticky ヘッダー、
     // lg 以上は右側の sticky な box。本文の並びはどちらも「ログ → 現在の状況 → 手がかり → 行動」
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pb-4 sm:px-6 sm:pb-6 lg:grid lg:max-w-4xl lg:grid-cols-[1fr_15rem] lg:items-start lg:gap-x-8 lg:pt-6">
+    // lg 以上は左右対称の 3 列にして本文を画面中央に置く。左列は空、右列にサイドを本文と同じ間隔で添える
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pb-4 sm:px-6 sm:pb-6 lg:grid lg:max-w-none lg:grid-cols-[1fr_minmax(0,39rem)_1fr] lg:items-start lg:gap-x-8 lg:pt-6">
       {/* ログが伸びても基本情報が流れないよう画面上端に留める。背景を塗らないとログが透ける。
           毎ターン判断に効く残量を主、一度読めば足りる異名と探索者情報を従に置く */}
       <header className="sticky top-0 z-10 grid gap-2 border-b border-edge bg-void pt-4 pb-3 sm:pt-6 lg:hidden">
@@ -540,7 +541,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
       </header>
 
       {/* ゲーム情報とプレイヤー情報。手がかりはターンごとに伸びて行動の直前に読むものなので入れない */}
-      <aside className="hidden lg:sticky lg:top-6 lg:col-start-2 lg:grid lg:gap-3">
+      <aside className="hidden lg:sticky lg:top-6 lg:col-start-3 lg:grid lg:w-60 lg:gap-3 lg:justify-self-start">
         <section className={PANEL}>
           <Epithet className="border-b border-edge pb-2 text-sm text-dim">{visible.entityEpithet}</Epithet>
           <Vitals visible={visible} className="pt-3" />
@@ -550,7 +551,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
         </section>
       </aside>
 
-      <div className="flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
+      <div className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1">
         {/* 上から下へ時系列。古いログは畳み、直前のターンと現在の状況だけを開く */}
         {past.length > 0 && (
           <details className="text-sm leading-loose text-dim">
