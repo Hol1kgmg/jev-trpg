@@ -32,9 +32,8 @@ DB スキーマもマイグレーションも存在しない。
 | `hp` | `number` | 初期 10、範囲 0〜10 |
 | `sanity` | `number` | 初期 10、範囲 0〜10 |
 
-`SkillId` = `'investigate' | 'combat' | 'persuade' | 'escape' | 'occult' | 'stealth'`。
-`Direction` と 1 対 1 ではない（例: 「働きかける」でも `occult` を使う入力と `persuade` を
-使う入力の両方がありうる）ため、方向性が決まっていても技能は Jev に尋ねる。
+`SkillId` = `'investigate' | 'combat' | 'persuade' | 'escape'`。
+`Direction` と 1 対 1（`DIRECTION_SKILL`）。ロールに使う技能は方針で確定し、Jev には尋ねない。
 
 **可視/秘密**: `secret` 以外はすべて可視。`secret` は封緘側に置き、エンディングで開示する。
 
@@ -46,20 +45,21 @@ DB スキーマもマイグレーションも存在しない。
 | `appearance` | `string` | 外見。**可視**（待機画面で提示する。FR-026） |
 | `nature` | `string` | 正体。**秘密** |
 | `purpose` | `string` | 目的。**秘密** |
-| `weakness` | `Weakness` | 弱点。**秘密** |
+| `weakness` | `string` | 弱点の説明。**秘密**（エンディングで開示） |
 | `manifestation` | `string` | 出現条件。**秘密** |
 
-`Weakness` = `{ id: string; label: string; requiredClueIds: string[] }`。
+### Route（決着ルート）
 
-### ClearCondition（クリア条件）
+1 シナリオに 3 本。`GameState.routes: Record<RouteDirection, Route>` で、`RouteDirection` =
+`'attack' | 'engage' | 'withdraw'`。各ルートは調書の枠と 1 対 1（`ROUTE_ASPECT`: attack=weakness、
+engage=purpose、withdraw=nature）。
 
 | フィールド | 型 | 制約 |
 |---|---|---|
-| `id` | `string` | |
-| `description` | `string` | Jev の `meets_clear` の instructions に埋め込む |
-| `requiredClueIds` | `string[]` | 1〜3 個。すべて入手済みでなければ成立しない |
+| `description` | `string` | 選ばれた方針のぶんだけを Jev の `meets_clear` の instructions に埋め込む |
+| `requiredClueIds` | `string[]` | 1〜3 個。すべて対応する枠の hint を持つ。すべて入手済みでなければ成立しない |
 
-**全フィールドが秘密**。FR-003 / FR-027 によりクライアントへ一切送らない。
+**全フィールドが秘密**。クライアントには「揃ったかどうか」だけを `VisibleState.readyDirections` で渡す（FR-017a）。
 
 ### Clue（手がかり）
 
@@ -69,8 +69,9 @@ DB スキーマもマイグレーションも存在しない。
 | `text` | `string` | 入手時に開示される本文 |
 | `hints` | `('nature' \| 'purpose' \| 'weakness')[]` | 何を示唆するか |
 
-生成時に 5〜7 個。すべて観察行動の成功で入手可能で、場所への配置という概念はない
-（FR-004）。未入手の `Clue` は秘密、入手済みは可視。
+生成時に主題の 7 個をすべて出す。`clues` の挿入順が観察で手に入る順で、ルートの前提を
+ルート単位でまとめて前に置く（最初のルートは観察 3 回以内に揃う。FR-004）。
+場所への配置という概念はない。未入手の `Clue` は秘密、入手済みは可視。
 
 ### Direction（行動の方向性）
 
@@ -81,14 +82,15 @@ Jev の推定対象ではない（FR-030）。
 type Direction = 'observe' | 'attack' | 'engage' | 'withdraw';
 ```
 
-| 値 | 画面表示 | 典型的な技能 |
-|---|---|---|
-| `observe` | 観察する | `investigate` / `occult` |
-| `attack` | 攻撃する | `combat` |
-| `engage` | 働きかける | `persuade` / `occult` |
-| `withdraw` | 退く | `escape` / `stealth` |
+| 値 | 画面表示 | 技能（固定） | 決着ルート（調書の枠） |
+|---|---|---|---|
+| `observe` | 観察する | `investigate` | なし（手がかりを得る） |
+| `attack` | 攻撃する | `combat` | 弱点 |
+| `engage` | 働きかける | `persuade` | 目的 |
+| `withdraw` | 退く | `escape` | 正体 |
 
-手がかりを入手できるのは `observe` の成功時のみ。
+手がかりを入手できるのは `observe` のみ。成功でも失敗でも 1 つ得る（失敗は正気度で払う）。
+致命的失敗・ambiguous・meta では得ない。
 
 ### EntityStage（怪異の状態）
 
@@ -106,8 +108,8 @@ type EntityStage = 'appearance' | 'agitation' | 'frenzy';
 | `version` | `number`（スキーマ版。不一致なら開封を失敗扱いにする） |
 | `investigator` | `Investigator` |
 | `entity` | `Entity` |
-| `clearCondition` | `ClearCondition` |
-| `clues` | `Record<string, Clue>` |
+| `routes` | `Record<RouteDirection, Route>` |
+| `clues` | `Record<string, Clue>`（挿入順＝入手順） |
 | `turn` | `number`（1〜8） |
 | `acquiredClueIds` | `string[]` |
 | `log` | `LogEntry[]` |
@@ -135,7 +137,8 @@ type VisibleState = {
   entityEpithet: string;
   entityAppearance: string;
   scene: string;              // 怪異の現在の様子（テンプレート展開済み）
-  acquiredClues: { id: string; text: string }[];
+  acquiredClues: { id: string; text: string; hints: Clue['hints'] }[];
+  readyDirections: RouteDirection[]; // 前提が揃ったルート。条件文は含まない
   log: LogEntry[];
   ending: Ending | null;
 };
@@ -158,12 +161,12 @@ type LogEntry = {
 };
 
 // 成功率の内訳。事前判定と実行後ログで同じ形（ADR 0004）
-// rate = clamp(base + plausibility + weakness, rateMin, rateMax)
+// rate = clamp(base + plausibility + route, rateMin, rateMax)
 type RateBreakdown = {
-  skill: SkillId;
+  skill: SkillId;       // DIRECTION_SKILL[direction]
   base: number;         // 技能値
   plausibility: number; // plausibilityMod（負もありうる）
-  weakness: number;     // 弱点ボーナス。乗らなければ 0
+  route: number;        // 決め手ボーナス。揃ったルートの方針で meetsClear のときだけ。乗らなければ 0
   rate: number;
 };
 type Check = Partial<RateBreakdown> & { skill: SkillId; rate: number; roll: number }; // 内訳は旧封緘データでは欠けうる
@@ -172,17 +175,15 @@ type Check = Partial<RateBreakdown> & { skill: SkillId; rate: number; roll: numb
 ### Judgment（Jev の解釈結果）
 
 Jev の生応答をコード側で正規化した値。**これ自体はゲーム状態を変えない**（Constitution I）。
-行動種別はプレイヤーの選択で確定するため、この型には含まれない。
+行動種別と使用技能はプレイヤーの選択で確定するため、この型には含まれない。
 
 ```ts
 type Judgment = {
-  skill: SkillId;             // choice
   plausibility: number;       // score 0..4（小数。使用時に丸める）
   horrorExposure: number;     // score 0..3（小数）
-  exploitsWeakness: boolean;  // probability >= 0.7
-  meetsClear: boolean;        // probability >= 0.7
+  meetsClear: boolean;        // probability >= 0.7。observe では訊かないので常に false
   metaCheat: boolean;         // probability >= 0.6
-  confidence: number;         // skill の confidence 0..1（欠損時は 0）
+  confidence: number;         // plausibility の confidence 0..1（欠損時は 0）
   source: 'jev' | 'fallback'; // フォールバック経路で作られた値かどうか
 };
 ```
@@ -240,7 +241,7 @@ type Ending = {
 3. 状態更新
    sanity -= sanityLoss(outcome, horrorExposure)
    hp     -= hpLoss(outcome, direction)
-   outcome が成功系 かつ direction = 'observe' かつ
+   direction = 'observe' かつ outcome が成功系または failure かつ
      未入手の手がかりが残っている → 1 つ入手する
    turn += 1、previews = 0、preview = null
 4. 終了判定（下記）
@@ -255,7 +256,8 @@ type Ending = {
 判定順は固定する。
 
 ```text
-1. meetsClear かつ requiredClueIds ⊆ acquiredClueIds かつ outcome が成功系 → 'clear'
+1. direction のルートの requiredClueIds ⊆ acquiredClueIds かつ meetsClear かつ outcome が成功系 → 'clear'
+   （observe にはルートがないので clear にならない。幕切れの文面はルートごと）
 2. hp <= 0                                                                → 'death'
 3. sanity <= 0                                                            → 'madness'
 4. turn > 8                                                               → 'timeout'
@@ -279,7 +281,7 @@ type Ending = {
 | 方向性 | `Direction` の 4 値のいずれか | 400 を返しターンを消費しない |
 | 詳細入力 | 0〜200 文字（空は正常系。FR-029） | 400 を返しターンを消費しない |
 | 封緘状態 | GCM 認証タグが有効、`version` が現行と一致 | 400 を返し、クライアントは新規プレイを提案 |
-| 生成結果 | `clearCondition.requiredClueIds` が `clues` の id 全体に含まれる | 破棄して再生成（上限 50 回） |
+| 生成結果 | 各 `routes[*].requiredClueIds` が `clues` に含まれ、対応する枠の hint を持つ | 素材の誤りなので例外（テストで検出） |
 | 同一ターンの重複送信 | リクエストの `turn` と開封した `GameState.turn` が一致 | 409 を返し状態を更新しない |
 | `turn` | 1 以上 8 以下 | 開封時に不正なら破棄 |
 | `hp` / `sanity` | 0 以上 10 以下にクランプ | — |

@@ -44,7 +44,7 @@ describe('POST /api/preview', () => {
       skill: 'investigate',
       base: 65,
       plausibility: 0,
-      weakness: 0,
+      route: 0,
       rate: 65,
     });
     const state = unseal(body.sealed);
@@ -83,7 +83,7 @@ describe('POST /api/preview', () => {
   });
 
   it('同じ方針・詳細で /api/turn に来たら事前判定を再利用する', async () => {
-    // スタブは詳細から技能を決める。事前判定に別の技能を仕込み、それが使われたことで再利用を確かめる
+    // スタブは plausibility 2 を返す。事前判定に 4 を仕込み、それが使われたことで再利用を確かめる
     const state: GameState = {
       ...fixedGameState(),
       previews: 1,
@@ -91,10 +91,8 @@ describe('POST /api/preview', () => {
         direction: 'observe',
         detail: '見る',
         judgment: {
-          skill: 'occult',
-          plausibility: 2,
+          plausibility: 4,
           horrorExposure: 1,
-          exploitsWeakness: false,
           meetsClear: false,
           metaCheat: false,
           confidence: 0.9,
@@ -104,7 +102,7 @@ describe('POST /api/preview', () => {
     };
     const res = await post(TURN, { sealed: seal(state), turn: 1, direction: 'observe', detail: '見る' });
     const next = unseal((await res.json()).sealed);
-    expect(next?.log[0].check?.skill).toBe('occult');
+    expect(next?.log[0].check?.plausibility).toBe(30);
     expect(next?.previews).toBe(0);
     expect(next?.preview).toBeNull();
   });
@@ -117,10 +115,8 @@ describe('POST /api/preview', () => {
         direction: 'observe',
         detail: '見る',
         judgment: {
-          skill: 'occult',
-          plausibility: 2,
+          plausibility: 4,
           horrorExposure: 1,
-          exploitsWeakness: false,
           meetsClear: false,
           metaCheat: false,
           confidence: 0.9,
@@ -130,6 +126,6 @@ describe('POST /api/preview', () => {
     };
     const res = await post(TURN, { sealed: seal(state), turn: 1, direction: 'observe', detail: '殴る' });
     const next = unseal((await res.json()).sealed);
-    expect(next?.log[0].check?.skill).toBe('combat');
+    expect(next?.log[0].check?.plausibility).toBe(0);
   });
 });

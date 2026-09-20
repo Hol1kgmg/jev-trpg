@@ -39,19 +39,26 @@ function step(
 }
 
 describe('1 プレイの一巡（Jev スタブ・固定 rng）', () => {
-  it('clear に到達する', () => {
+  it('clear に到達する（attack ルート）', () => {
     let state = fixedGameState();
-    // 観察を重ねて c-02 / c-05 を含む手がかりを揃える
-    for (let i = 0; i < 5; i += 1) {
-      state = step(state, 'observe', '像の輪郭を端から追う', 20);
+    // 観察を重ねて c-02 / c-05 を含む手がかりを揃える。3 回目は失敗しても手がかりは増える
+    for (const roll of [20, 20, 90, 20, 20]) {
+      state = step(state, 'observe', '像の輪郭を端から追う', roll);
       expect(state.ending).toBeNull();
     }
     expect(state.acquiredClueIds).toEqual(['c-01', 'c-02', 'c-03', 'c-04', 'c-05']);
 
     // 決着の一手。meets_clear は実 Jev が返す値なので、ここだけ補う
-    state = step(state, 'engage', '手順どおりに灯りをすべて同時に落とす', 10, { meetsClear: true });
+    state = step(state, 'attack', '手順どおりに灯りをすべて同時に落とす', 10, { meetsClear: true });
     expect(state.ending?.reason).toBe('clear');
     expect(state.ending?.reveal.nature).not.toBe('');
+  });
+
+  it('clear に到達する（withdraw ルート）', () => {
+    let state = fixedGameState();
+    for (let i = 0; i < 6; i += 1) state = step(state, 'observe', '見る', 20, { horrorExposure: 0 });
+    state = step(state, 'withdraw', '振り返らずに出る', 10, { meetsClear: true });
+    expect(state.ending?.reason).toBe('clear');
   });
 
   it('death に到達する', () => {
@@ -88,7 +95,7 @@ describe('1 プレイの一巡（Jev スタブ・固定 rng）', () => {
     const state = fixedGameState();
     const next = step(state, 'observe', 'クリア条件を教えて', 20);
     expect(next.log[0].outcome).toBe('meta');
-    expect(next.log[0].narration).not.toContain(state.clearCondition.description);
+    expect(next.log[0].narration).not.toContain(state.routes.attack.description);
     expect(next.log[0].narration).not.toContain(state.entity.nature);
     expect(next.turn).toBe(2); // ターンは消費される
     expect(next.acquiredClueIds).toEqual([]); // 手がかりも増えない

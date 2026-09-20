@@ -4,15 +4,18 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { previewDebounceMs } from '@/lib/game/tuning';
-import { defaultSkill } from '@/lib/jev/stub';
 import {
   DIRECTIONS,
+  DIRECTION_SKILL,
+  ROUTE_ASPECT,
+  ROUTE_DIRECTIONS,
   type Check,
   type Clue,
   type Direction,
   type Ending,
   type LogEntry,
   type RateBreakdown,
+  type RouteDirection,
   type SkillId,
   type VisibleState,
 } from '@/lib/game/types';
@@ -22,8 +25,6 @@ const skillLabels: Record<SkillId, string> = {
   combat: '戦闘',
   persuade: '交渉',
   escape: '逃走',
-  occult: '神秘',
-  stealth: '隠密',
 };
 
 const directionLabels: Record<Direction, string> = {
@@ -33,11 +34,17 @@ const directionLabels: Record<Direction, string> = {
   withdraw: '退く',
 };
 
-const ASPECTS: [Clue['hints'][number], string][] = [
-  ['nature', '正体'],
-  ['purpose', '目的'],
-  ['weakness', '弱点'],
-];
+const aspectLabels: Record<Clue['hints'][number], string> = {
+  nature: '正体',
+  purpose: '目的',
+  weakness: '弱点',
+};
+
+// 調書の枠は決着ルートと 1 対 1。枠が埋まる＝その方針で決着できる、を見出しに書く
+const ASPECT_ROUTE = Object.fromEntries(
+  ROUTE_DIRECTIONS.map((d) => [ROUTE_ASPECT[d], d]),
+) as Record<Clue['hints'][number], RouteDirection>;
+const ASPECTS: Clue['hints'][number][] = ['nature', 'purpose', 'weakness'];
 
 // 終了理由ごとに色だけ変える。文面はサーバーのテンプレートが決める（FR-020）
 const ENDING_STYLE: Record<Ending['reason'], { label: string; text: string; box: string }> = {
@@ -45,6 +52,7 @@ const ENDING_STYLE: Record<Ending['reason'], { label: string; text: string; box:
   death: { label: '死亡', text: 'text-blood-light', box: 'border-blood/50 bg-blood/6' },
   madness: { label: '発狂', text: 'text-gold', box: 'border-gold/50 bg-gold/6' },
   timeout: { label: '時間切れ', text: 'text-dim', box: 'border-edge bg-surface' },
+  retire: { label: '失敗', text: 'text-blood-light', box: 'border-blood/50 bg-blood/6' },
 };
 
 // 成否の両端だけ色で強調する。中間は描写文に任せる
@@ -176,12 +184,12 @@ const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
 
 const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
 
-// 成功率の内訳。Jev の解釈（技能・妥当性・弱点）がどこで効いたかを数字で見せる（ADR 0004）。
+// 成功率の内訳。Jev の解釈（妥当性・決め手）がどこで効いたかを数字で見せる（ADR 0004）。
 // 内訳を持たない旧ログでは目標値だけになる
 function rateText(r: RateBreakdown | Check): string {
   if (r.base === undefined) return `${skillLabels[r.skill]} ${r.rate}`;
   const parts = [`${skillLabels[r.skill]} ${r.base}`, `妥当性 ${signed(r.plausibility ?? 0)}`];
-  if (r.weakness) parts.push(`弱点 ${signed(r.weakness)}`);
+  if (r.route) parts.push(`決め手 ${signed(r.route)}`);
   return `${parts.join(' ')} ＝ ${r.rate}`;
 }
 
@@ -345,6 +353,7 @@ export default function Page() {
     startSession,
     requestPreview,
     submit,
+    retire,
   } = useGame();
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
@@ -363,9 +372,8 @@ export default function Page() {
     direction !== null && preview?.direction === direction && preview.detail === detail.trim()
       ? preview
       : null;
-  // 光らせる技能。事前判定が返るまでは方針の既定技能、返ったら Jev が実際に選んだ技能
-  const litSkill =
-    direction === null ? null : (shownPreview?.rate?.skill ?? defaultSkill[direction]);
+  // 光らせる技能。方針と 1 対 1 なので選んだ時点で確定する
+  const litSkill = direction === null ? null : DIRECTION_SKILL[direction];
   const [reveal, setReveal] = useState<LogEntry | null>(null);
   // モーダルで結果を見せ終えるまで、送信前の状態のまま描く（ログ・調書・情景が先に動かないように）
   const [frozen, setFrozen] = useState<VisibleState | null>(null);
@@ -395,19 +403,16 @@ export default function Page() {
   );
 
   // 前回の演出用の状態も一緒に捨てる。残すと新しいゲームで直前の幕切れが再生される
+  const startOver = () => {
+    setDirection(null);
+    setDetail('');
+    setReveal(null);
+    setFrozen(null);
+    setEnding(null);
+    void newGame();
+  };
   const restart = (
-    <Btn
-      className="justify-self-start self-start"
-      onClick={() => {
-        setDirection(null);
-        setDetail('');
-        setReveal(null);
-        setFrozen(null);
-        setEnding(null);
-        void newGame();
-      }}
-      disabled={sending}
-    >
+    <Btn className="justify-self-start self-start" onClick={startOver} disabled={sending}>
       新規開始
     </Btn>
   );
@@ -444,10 +449,11 @@ export default function Page() {
           </div>
         </header>
         <section className="text-sm leading-loose">{visible.entityAppearance}</section>
-        {/* 「正体不明を明らかにする」が目標だと、遊ぶ前に一度だけ言葉で示す */}
+        {/* 「観察で枠を埋め、埋まった枠の方針で決着する」を遊ぶ前に一度だけ言葉で示す（FR-017b） */}
         <section className="grid gap-1 border-l border-gold/40 pl-3 text-xs leading-relaxed text-dim">
-          <p>相手の正体・目的・弱点は、まだ何も分かっていない。</p>
-          <p>観察して明らかにし、弱点を突け。猶予は {visible.maxTurn} ターン。</p>
+          <p>相手の正体・目的・弱点は、まだ何も分かっていない。まず観察せよ。</p>
+          <p>正体を掴めば退ける。目的を掴めば働きかけられる。弱点を掴めば討てる。</p>
+          <p>猶予は {visible.maxTurn} ターン。決着の一手は、何をするかを自分の言葉で書く。</p>
         </section>
         <section className={PANEL}>
           <Investigator visible={visible} />
@@ -545,16 +551,28 @@ export default function Page() {
         ) : (
           <>
             {/* 判断の唯一の根拠なので、判断する場所の直前に開いたまま置く（FR-017） */}
-            {/* 正体・目的・弱点の枠を最初から見せ、埋まっていく形で「明らかにする」進みを示す */}
+            {/* 正体・目的・弱点の枠を最初から見せ、各枠にどの方針（と技能）で決着できるかを添える。
+                揃った枠は点灯させる。条件文は出さない（FR-017a） */}
             <section className={`${PANEL} grid gap-3 text-xs`}>
               <p className={`${HEADING} border-b border-edge pb-2`}>調書</p>
-              {ASPECTS.map(([aspect, label]) => {
+              {ASPECTS.map((aspect) => {
                 const clues = visible.acquiredClues.filter((c) => c.hints.includes(aspect));
+                const route = ASPECT_ROUTE[aspect];
+                const skill = DIRECTION_SKILL[route];
+                const ready = visible.readyDirections.includes(route);
                 return (
                   <div key={aspect} className="grid gap-1">
-                    <p className="font-display tracking-wider text-dim">
-                      {label}
-                      {clues.length === 0 && <span className="text-edge">　不明</span>}
+                    <p className="flex flex-wrap items-baseline justify-between gap-x-3 font-display tracking-wider text-dim">
+                      <span>
+                        {aspectLabels[aspect]}
+                        {clues.length === 0 && <span className="text-edge">　不明</span>}
+                      </span>
+                      <span className={ready ? 'text-gold' : 'text-edge'}>
+                        {ready ? `${directionLabels[route]}で決着できる` : `→ ${directionLabels[route]}`}
+                        <span className="tabular-nums">
+                          （{skillLabels[skill]} {visible.skills[skill]}）
+                        </span>
+                      </span>
                     </p>
                     {clues.length > 0 && (
                       <ul className="grid gap-1 leading-relaxed">
@@ -575,20 +593,31 @@ export default function Page() {
               {direction === null ? (
                 <div className="grid gap-2">
                   <p className="text-xs text-dim">あなたはどうする？（方針）</p>
-                  {visible.acquiredClues.length === 0 && (
-                    <p className="text-xs text-dim">まずは観察して、相手の正体を探る。</p>
-                  )}
+                  {/* 次に何をすべきかを状況で切り替える: 枠が空なら観察、揃ったら決着 */}
+                  <p className="text-xs text-dim">
+                    {visible.readyDirections.length > 0
+                      ? `${visible.readyDirections.map((d) => directionLabels[d]).join('・')}で決着できる。調書の手がかりを踏まえ、何をするかを詳細に書け。`
+                      : visible.acquiredClues.length === 0
+                        ? 'まずは観察して、調書の枠を埋める。'
+                        : '観察を重ねて枠を埋める。揃った枠の方針で決着できる。'}
+                  </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {DIRECTIONS.map((d) => (
-                      <Btn
-                        key={d}
-                        className="px-3 py-3 hover:border-forest hover:bg-forest/8"
-                        disabled={sending}
-                        onClick={() => setDirection(d)}
-                      >
-                        {directionLabels[d]}
-                      </Btn>
-                    ))}
+                    {DIRECTIONS.map((d) => {
+                      const ready = d !== 'observe' && visible.readyDirections.includes(d);
+                      return (
+                        <Btn
+                          key={d}
+                          className={`grid gap-0.5 px-3 py-3 hover:border-forest hover:bg-forest/8 ${ready ? 'border-gold/60 text-gold' : ''}`}
+                          disabled={sending}
+                          onClick={() => setDirection(d)}
+                        >
+                          {directionLabels[d]}
+                          <span className="text-[10px] tabular-nums tracking-normal text-dim">
+                            {skillLabels[DIRECTION_SKILL[d]]} {visible.skills[DIRECTION_SKILL[d]]}
+                          </span>
+                        </Btn>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -611,11 +640,19 @@ export default function Page() {
                   <p className="text-xs text-dim">あなたはどうする？（詳細）</p>
                   <p className="font-display text-xs tracking-wider text-forest-light">
                     方針: {directionLabels[direction]}
+                    {direction !== 'observe' && visible.readyDirections.includes(direction) && (
+                      <span className="text-gold">　決着できる</span>
+                    )}
                   </p>
                   <input
                     // text-base（16px）未満だと iOS が入力時に画面を拡大する
                     className="w-full rounded-sm border border-edge bg-abyss px-3 py-2 text-base outline-none focus:border-dim"
-                    placeholder="空欄のままでも進められます"
+                    // 決着は詳細の内容で判定される。空欄でもターンは進むが、決着は絶対に付かない
+                    placeholder={
+                      direction === 'observe'
+                        ? '空欄のままでも進められます'
+                        : '何をするかを書く。空欄では決着は付かない'
+                    }
                     maxLength={200}
                     value={detail}
                     onChange={(e) => setDetail(e.target.value)}
@@ -657,6 +694,20 @@ export default function Page() {
                 </form>
               )}
             </section>
+
+            {/* 途中で降りる道。決着として扱い、幕切れと正体の開示は通常の終了と同じ画面で見せる */}
+            <Btn
+              className="justify-self-start border-transparent"
+              disabled={sending}
+              onClick={() => {
+                if (!confirm('この対峙をあきらめますか？')) return;
+                setDirection(null);
+                setDetail('');
+                void retire().then(() => setEnding(useGame.getState().visible?.ending ?? null));
+              }}
+            >
+              あきらめる
+            </Btn>
           </>
         )}
 

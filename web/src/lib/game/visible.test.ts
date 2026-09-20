@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { fixedGameState } from './fixture';
+import { ROUTE_DIRECTIONS } from './types';
 import { toVisible } from './visible';
 
 const rng = () => 0.5;
@@ -14,19 +15,28 @@ describe('toVisible', () => {
 
     expect(json).not.toContain(state.entity.nature);
     expect(json).not.toContain(state.entity.purpose);
-    expect(json).not.toContain(state.entity.weakness.label);
+    expect(json).not.toContain(state.entity.weakness);
     expect(json).not.toContain(state.entity.manifestation);
   });
 
-  it('クリア条件を投影に含めない', () => {
+  it('ルートの条件文と前提 id を投影に含めない', () => {
     const state = fixedGameState();
     const json = JSON.stringify(toVisible(state, rng));
 
-    expect(json).not.toContain(state.clearCondition.description);
-    expect(json).not.toContain(state.clearCondition.id);
-    for (const id of state.clearCondition.requiredClueIds) {
-      expect(json).not.toContain(`"${id}"`);
+    for (const dir of ROUTE_DIRECTIONS) {
+      expect(json).not.toContain(state.routes[dir].description);
+      for (const id of state.routes[dir].requiredClueIds) {
+        expect(json).not.toContain(`"${id}"`);
+      }
     }
+  });
+
+  it('揃ったルートは方針名だけを開示する', () => {
+    const state = fixedGameState();
+    expect(toVisible(state, rng).readyDirections).toEqual([]);
+    expect(toVisible({ ...state, acquiredClueIds: ['c-02', 'c-05'] }, rng).readyDirections).toEqual([
+      'attack',
+    ]);
   });
 
   it('探索者の秘密を投影に含めない', () => {
@@ -81,7 +91,7 @@ describe('toVisible', () => {
       reveal: {
         nature: state.entity.nature,
         purpose: state.entity.purpose,
-        weakness: state.entity.weakness.label,
+        weakness: state.entity.weakness,
         secret: state.investigator.secret,
       },
     };

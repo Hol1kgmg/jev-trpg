@@ -12,8 +12,8 @@ export const plausibilityMod: Record<number, number> = {
   4: 30,
 };
 
-/** exploits_weakness かつ前提手がかりを所持している場合の加算 */
-export const weaknessBonus = 20;
+/** 手がかりの揃ったルートの条件を満たす行動（meets_clear）への加算 */
+export const routeBonus = 20;
 
 export const rateMin = 5;
 export const rateMax = 95;
@@ -23,9 +23,8 @@ export const fumbleFloor = 96;
 
 /** 確信度のしきい値（research.md R-002） */
 export const confidenceThresholds = {
-  /** skill の confidence がこれ未満なら ambiguous（ロールしない） */
+  /** plausibility の confidence がこれ未満なら ambiguous（ロールしない） */
   ambiguous: 0.5,
-  exploitsWeakness: 0.7,
   meetsClear: 0.7,
   metaCheat: 0.6,
 } as const;
@@ -45,9 +44,6 @@ export function entityStage(turn: number): EntityStage {
   return 'frenzy';
 }
 
-/** 生成の再試行上限（research.md R-007） */
-export const generationRetryLimit = 50;
-
 /** Jev の呼び出しタイムアウト（ミリ秒） */
 export const jevTimeoutMs = 5000;
 
@@ -57,10 +53,13 @@ export const previewLimit = 10;
 /** 入力が止まってから事前判定を送るまでの待ち（ミリ秒） */
 export const previewDebounceMs = 3000;
 
-/** 失敗系の結果ほど恐怖に曝される。horrorExposure（0〜3 に丸めた値）に足して正気度を減らす */
+/**
+ * 失敗系の結果ほど恐怖に曝される。horrorExposure（0〜3 に丸めた値）に足して正気度を減らす。
+ * 成功は並の恐怖（exposure 1）なら無償。観察を「いくらで見えるか」の判定にするための基準
+ */
 const sanityLossByOutcome: Record<Outcome, number> = {
-  critical_success: -1,
-  success: 0,
+  critical_success: -2,
+  success: -1,
   failure: 1,
   fumble: 2,
   ambiguous: 0,

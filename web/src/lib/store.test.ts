@@ -21,7 +21,7 @@ function stubStorage(): Map<string, string> {
 
 const visible = {
   occupation: '気象観測技師',
-  skills: { investigate: 65, combat: 25, persuade: 40, escape: 50, occult: 15, stealth: 35 },
+  skills: { investigate: 65, combat: 25, persuade: 40, escape: 50 },
   items: ['携帯用の照度計'],
   hp: 10,
   sanity: 10,

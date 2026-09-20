@@ -1,7 +1,7 @@
 // 成功率の算出・d100・状態更新。すべてコード側の純関数で、rng は注入する（Constitution I）。
 // Judgment を引数に取るだけなので、Jev をモックせずともテストできる（Constitution IV）。
 
-import { checkEnding, reveal } from './ending';
+import { checkEnding, readyRoutes, reveal } from './ending';
 import { narrateEnding, narrateOutcome, type Rng } from './narrate';
 import {
   confidenceThresholds,
@@ -12,17 +12,18 @@ import {
   plausibilityMod,
   rateMax,
   rateMin,
+  routeBonus,
   sanityLoss,
-  weaknessBonus,
 } from './tuning';
-import type {
-  Check,
-  Direction,
-  GameState,
-  Judgment,
-  LogEntry,
-  Outcome,
-  RateBreakdown,
+import {
+  DIRECTION_SKILL,
+  type Check,
+  type Direction,
+  type GameState,
+  type Judgment,
+  type LogEntry,
+  type Outcome,
+  type RateBreakdown,
 } from './types';
 
 export type TurnDelta = { hp: number; sanity: number; clueId: string | null };
@@ -36,40 +37,50 @@ export type TurnResult = {
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
-/** rate = clamp(skill + plausibilityMod + weaknessBonus, 5, 95)。内訳ごと返す */
-export function rateBreakdown(state: GameState, judgment: Judgment): RateBreakdown {
-  const base = state.investigator.skills[judgment.skill];
+/** rate = clamp(skill + plausibilityMod + routeBonus, 5, 95)。技能は方針で確定する。内訳ごと返す */
+export function rateBreakdown(
+  state: GameState,
+  direction: Direction,
+  judgment: Judgment,
+): RateBreakdown {
+  const skill = DIRECTION_SKILL[direction];
+  const base = state.investigator.skills[skill];
   const plausible = clamp(Math.round(judgment.plausibility), 0, 4);
 
-  const acquired = new Set(state.acquiredClueIds);
-  const knowsWeakness = state.entity.weakness.requiredClueIds.every((id) => acquired.has(id));
-  const weakness = judgment.exploitsWeakness && knowsWeakness ? weaknessBonus : 0;
+  // 決め手は「手がかりが揃ったルート」で「その条件を満たす行動」をしたときだけ
+  const ready = direction !== 'observe' && readyRoutes(state).includes(direction);
+  const route = ready && judgment.meetsClear ? routeBonus : 0;
 
   const plausibility = plausibilityMod[plausible];
   return {
-    skill: judgment.skill,
+    skill,
     base,
     plausibility,
-    weakness,
-    rate: clamp(base + plausibility + weakness, rateMin, rateMax),
+    route,
+    rate: clamp(base + plausibility + route, rateMin, rateMax),
   };
 }
 
-export const successRate = (state: GameState, judgment: Judgment): number =>
-  rateBreakdown(state, judgment).rate;
+export const successRate = (state: GameState, direction: Direction, judgment: Judgment): number =>
+  rateBreakdown(state, direction, judgment).rate;
 
 /** 事前判定でプレイヤーに見せる内訳。ロールしない判定（ambiguous / meta / fallback）は null */
-export function previewBreakdown(state: GameState, judgment: Judgment): RateBreakdown | null {
+export function previewBreakdown(
+  state: GameState,
+  direction: Direction,
+  judgment: Judgment,
+): RateBreakdown | null {
   if (judgment.metaCheat || judgment.confidence < confidenceThresholds.ambiguous) return null;
-  return rateBreakdown(state, judgment);
+  return rateBreakdown(state, direction, judgment);
 }
 
 function rollOutcome(
   state: GameState,
+  direction: Direction,
   judgment: Judgment,
   rng: Rng,
 ): { outcome: Outcome; check: Check } {
-  const breakdown = rateBreakdown(state, judgment);
+  const breakdown = rateBreakdown(state, direction, judgment);
   const { rate } = breakdown;
   const roll = Math.floor(rng() * 100) + 1;
   const check = { ...breakdown, roll };
@@ -100,15 +111,16 @@ export function resolveTurn(
     ? { outcome: 'meta' as const, check: undefined }
     : judgment.confidence < confidenceThresholds.ambiguous
       ? { outcome: 'ambiguous' as const, check: undefined }
-      : rollOutcome(state, judgment, rng);
+      : rollOutcome(state, direction, judgment, rng);
 
   const succeeded = outcome === 'critical_success' || outcome === 'success';
 
-  // 手がかりは観察の成功でのみ増える。出し尽くしたあとは増えない（AS 2-2）
+  // 観察は「見えるか」ではなく「いくらで見えるか」の判定。失敗でも手がかりは得る（正気度で払う）。
+  // 得られないのは致命的失敗と、ロールしないターンだけ。出し尽くしたあとは増えない（AS 2-2）
   const nextClueId =
     Object.keys(state.clues).find((id) => !state.acquiredClueIds.includes(id)) ?? null;
-  const observedWell = succeeded && direction === 'observe';
-  const acquiredClueId = observedWell ? nextClueId : null;
+  const observed = direction === 'observe' && (succeeded || outcome === 'failure');
+  const acquiredClueId = observed ? nextClueId : null;
 
   const hpDelta = -hpLoss(outcome, direction);
   const sanityDelta = -sanityLoss(outcome, judgment.horrorExposure);
@@ -117,7 +129,7 @@ export function resolveTurn(
 
   const narration = narrateOutcome(state, direction, outcome, rng, {
     clueText: acquiredClueId ? state.clues[acquiredClueId].text : undefined,
-    exhausted: observedWell && nextClueId === null,
+    exhausted: observed && nextClueId === null,
   });
 
   let next: GameState = {
@@ -132,11 +144,11 @@ export function resolveTurn(
       : state.acquiredClueIds,
   };
 
-  const reason = checkEnding(next, judgment, outcome);
+  const reason = checkEnding(next, direction, judgment, outcome);
   if (reason !== null) {
     next = {
       ...next,
-      ending: { reason, text: narrateEnding(next, reason, rng), reveal: reveal(next) },
+      ending: { reason, text: narrateEnding(next, reason, rng, direction), reveal: reveal(next) },
     };
   }
 

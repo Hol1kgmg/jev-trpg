@@ -48,14 +48,14 @@ Jev を 1 回呼び、成功率の内訳だけを返す。ゲーム状態は進�
 {
   "sealed": "<opaque string>",
   "previews": 3,
-  "rate": { "skill": "investigate", "base": 65, "plausibility": 15, "weakness": 20, "rate": 95 }
+  "rate": { "skill": "combat", "base": 45, "plausibility": 15, "route": 20, "rate": 80 }
 }
 ```
 
 - `sealed`: 判定回数と `Judgment` を書き込んだ封緘。クライアントは以降これを送る
 - `previews`: このターンに走らせた事前判定の回数（上限は `tuning.ts` の `previewLimit`）
 - `rate`: `RateBreakdown`。ロールしない判定（ambiguous / meta / フォールバック）では `null`。
-  恐怖の負荷・クリア条件の充足・弱点の空振り理由は**返さない**（FR-003）
+  恐怖の負荷は**返さない**。`route` が乗る＝揃ったルートの条件を満たす行動、と読める（FR-017a の範囲内）
 
 **400 / 409**: `/api/turn` と同じ。決着後も `409 turn_mismatch`。
 
@@ -132,10 +132,8 @@ Jev の呼び出しが例外・タイムアウト（5 秒）・スキーマ不�
 
 ```ts
 {
-  skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
-  exploitsWeakness: false,
   meetsClear: false,
   metaCheat: false,
   confidence: 0,      // → outcome は必ず 'ambiguous' になる

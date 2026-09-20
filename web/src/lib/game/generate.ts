@@ -1,12 +1,21 @@
-// シナリオの生成と「解ける保証」（research.md R-007 / Constitution III）。
-// 素朴に生成してから集合の包含を検証し、満たさなければ破棄して再生成する。
-// 手がかりの id は素材側の添字から決まるので、クリア条件が要求する id は生成前から確定している。
+// シナリオの生成と「解ける保証」（Constitution III）。
+// 手がかりは主題の 7 個をすべて盤面に出すので、ルートの前提が欠けることはない。
+// 保証の中身は「順序」に移した: 観察で手に入る順を、ルート単位でまとめて前に置き、
+// どのルートも観察 2〜3 回で開くようにする。どのルートが先に開くかは毎回変わる。
 
 import { entityMotifs, itemPool, occupations, secrets } from '@/data/scenarios';
 import { STATE_VERSION } from '../seal';
 import { pick, type Rng } from './narrate';
-import { generationRetryLimit, maxHp, maxSanity } from './tuning';
-import { SKILL_IDS, type Clue, type GameState, type SkillId } from './types';
+import { maxHp, maxSanity } from './tuning';
+import {
+  ROUTE_DIRECTIONS,
+  SKILL_IDS,
+  type Clue,
+  type GameState,
+  type Route,
+  type RouteDirection,
+  type SkillId,
+} from './types';
 
 const clueId = (index: number) => `c-${String(index + 1).padStart(2, '0')}`;
 
@@ -24,26 +33,34 @@ function sample<T>(items: readonly T[], count: number, rng: Rng): T[] {
 const intBetween = (min: number, max: number, rng: Rng) =>
   min + Math.floor(rng() * (max - min + 1));
 
-function attempt(rng: Rng): GameState | null {
+export function generateGameState(rng: Rng = Math.random): GameState {
   const motif = pick(entityMotifs, rng);
 
-  const indexes = sample(
-    motif.cluePool.map((_, i) => i),
-    intBetween(5, 7, rng),
-    rng,
-  ).sort((a, b) => a - b);
-
-  const clearClueIds = motif.clearClueIndexes.map(clueId);
-  const weaknessClueIds = motif.weaknessClueIndexes.map(clueId);
-
-  // 解ける保証。前提の手がかりが盤面に出ていなければ、この試行ごと破棄する
-  const present = new Set(indexes.map(clueId));
-  if (![...clearClueIds, ...weaknessClueIds].every((id) => present.has(id))) return null;
+  // ルートの前提を先に、残りを後に。前提が盤面にない主題はデータの誤りなので生成時に落とす
+  const order: number[] = [];
+  for (const dir of sample(ROUTE_DIRECTIONS, ROUTE_DIRECTIONS.length, rng)) {
+    for (const i of motif.routes[dir].clueIndexes) {
+      if (motif.cluePool[i] === undefined) throw new Error(`generation failed: clue ${i} missing`);
+      if (!order.includes(i)) order.push(i);
+    }
+  }
+  const rest = motif.cluePool.map((_, i) => i).filter((i) => !order.includes(i));
+  order.push(...sample(rest, rest.length, rng));
 
   const clues: Record<string, Clue> = {};
-  for (const i of indexes) {
+  for (const i of order) {
     clues[clueId(i)] = { id: clueId(i), ...motif.cluePool[i] };
   }
+
+  const routes = Object.fromEntries(
+    ROUTE_DIRECTIONS.map((dir) => [
+      dir,
+      {
+        description: motif.routes[dir].description,
+        requiredClueIds: motif.routes[dir].clueIndexes.map(clueId),
+      },
+    ]),
+  ) as Record<RouteDirection, Route>;
 
   const skills = Object.fromEntries(
     SKILL_IDS.map((id) => [id, intBetween(5, 80, rng)]),
@@ -64,31 +81,14 @@ function attempt(rng: Rng): GameState | null {
       appearance: motif.appearance,
       nature: motif.nature,
       purpose: motif.purpose,
-      weakness: {
-        id: 'w-01',
-        label: motif.weaknessLabel,
-        requiredClueIds: weaknessClueIds,
-      },
+      weakness: motif.weaknessLabel,
       manifestation: motif.manifestation,
     },
-    clearCondition: {
-      id: 'cc-01',
-      description: motif.clearCondition,
-      requiredClueIds: clearClueIds,
-    },
+    routes,
     clues,
     turn: 1,
     acquiredClueIds: [],
     log: [],
     ending: null,
   };
-}
-
-/** 上限まで再生成しても解ける保証を満たせなければ例外（/api/new-game が 500 に変換する） */
-export function generateGameState(rng: Rng = Math.random): GameState {
-  for (let i = 0; i < generationRetryLimit; i++) {
-    const state = attempt(rng);
-    if (state !== null) return state;
-  }
-  throw new Error('generation failed: clear condition is unreachable');
 }

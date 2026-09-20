@@ -2,16 +2,14 @@
 
 import { experimental_evaluate as evaluate, type Experimental_EvaluationModel } from 'ai';
 import { confidenceThresholds, jevTimeoutMs } from '@/lib/game/tuning';
-import { SKILL_IDS, type Judgment, type JevState, type SkillId } from '@/lib/game/types';
+import type { GameState, Judgment, JevState } from '@/lib/game/types';
 import { questions } from './questions';
 import { judgeStub } from './stub';
 
 /** 呼び出し失敗時の Judgment。confidence 0 により必ず ambiguous に落ちる（contracts/http-api.md） */
 export const fallbackJudgment: Judgment = {
-  skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
-  exploitsWeakness: false,
   meetsClear: false,
   metaCheat: false,
   confidence: 0,
@@ -30,42 +28,41 @@ function num(value: unknown): number {
   return value;
 }
 
-/** contracts/jev-questions.md の写像表 */
+/** contracts/jev-questions.md の写像表。meets_clear は observe では訊かないので欠けてよい */
 export function normalizeJudgment(result: {
   answers: Record<string, RawAnswer | undefined>;
   providerMetadata?: unknown;
 }): Judgment {
   const answers = result.answers;
-  const skill = answers?.skill?.choice;
-  if (typeof skill !== 'string' || !SKILL_IDS.includes(skill as SkillId)) {
-    throw new Error('jev: unknown skill');
-  }
 
   const confidence = (
     result.providerMetadata as { typesafe?: { confidence?: Record<string, unknown> } } | undefined
-  )?.typesafe?.confidence?.skill;
+  )?.typesafe?.confidence?.plausibility;
 
   return {
-    skill: skill as SkillId,
     plausibility: clamp(num(answers.plausibility?.score), 0, 4),
     horrorExposure: clamp(num(answers.horror_exposure?.score), 0, 3),
-    exploitsWeakness:
-      num(answers.exploits_weakness?.probability) >= confidenceThresholds.exploitsWeakness,
-    meetsClear: num(answers.meets_clear?.probability) >= confidenceThresholds.meetsClear,
+    meetsClear:
+      answers.meets_clear !== undefined &&
+      num(answers.meets_clear.probability) >= confidenceThresholds.meetsClear,
     metaCheat: num(answers.meta_cheat?.probability) >= confidenceThresholds.metaCheat,
     confidence: typeof confidence === 'number' && Number.isFinite(confidence) ? confidence : 0,
     source: 'jev',
   };
 }
 
+/** 選ばれた方針のルート条件文。observe にはルートがない */
+export const routeDescription = (state: GameState, direction: JevState['action']['direction']) =>
+  direction === 'observe' ? null : state.routes[direction].description;
+
 /**
  * 1 ターンにつき 1 回だけ呼ぶ（Constitution II）。失敗しても再試行せずフォールバックで完結させる。
- * clearConditionDescription は meets_clear の instructions にだけ使い、state には載せない（FR-003）。
+ * routeDescription は meets_clear の instructions にだけ使い、state には載せない（FR-003）。
  * model はテストで Experimental_EvaluationMockModelV4 に差し替えるためだけの引数。
  */
 export async function judge(
   state: JevState,
-  clearConditionDescription: string,
+  routeDescription: string | null,
   model: Experimental_EvaluationModel = 'typesafe-ai/jev',
 ): Promise<Judgment> {
   if (process.env.JEV_STUB === '1') return judgeStub(state);
@@ -74,14 +71,14 @@ export async function judge(
     const result = await evaluate({
       model,
       state,
-      questions: questions(clearConditionDescription),
+      questions: questions(routeDescription),
       maxRetries: 0,
       abortSignal: AbortSignal.timeout(jevTimeoutMs),
     });
     return normalizeJudgment(result);
   } catch (error) {
     // 握り潰すとフォールバックか実結果か区別がつかない。ゲームは止めないが原因は残す。
-    // error 全体は requestBodyValues 経由でクリア条件（FR-003 の秘匿対象）を含むため、
+    // error 全体は requestBodyValues 経由でルート条件（FR-003 の秘匿対象）を含むため、
     // メッセージだけをログに出す。
     console.error('jev: falling back', error instanceof Error ? error.message : error);
     return fallbackJudgment;

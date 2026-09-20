@@ -4,7 +4,7 @@
 import { turnRequest } from '@/lib/api/schema';
 import { resolveTurn } from '@/lib/game/resolve';
 import { toVisible } from '@/lib/game/visible';
-import { judge } from '@/lib/jev/client';
+import { judge, routeDescription } from '@/lib/jev/client';
 import { jevState } from '@/lib/jev/state';
 import { seal, unseal } from '@/lib/seal';
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const reused = preview?.direction === direction && preview.detail === detail;
   const judgment = reused
     ? preview.judgment
-    : await judge(jevState(state, direction, detail), state.clearCondition.description);
+    : await judge(jevState(state, direction, detail), routeDescription(state, direction));
   const result = resolveTurn(state, direction, detail, judgment, Math.random);
 
   return Response.json({

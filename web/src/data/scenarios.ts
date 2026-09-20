@@ -1,8 +1,12 @@
 // ランダム生成の素材。世界観・用語はすべて独自定義で、既存TRPG作品の二次創作物ではない（FR-022）。
-// 怪異は「主題（motif）」単位でまとめる。1 つの主題の中では、正体・目的・弱点・クリア条件・
+// 怪異は「主題（motif）」単位でまとめる。1 つの主題の中では、正体・目的・弱点と 3 本の決着ルート・
 // 手がかりが互いに噛み合うようにしてある。生成側はここから選ぶだけで、文章を作らない。
+//
+// ルートは方針と 1 対 1: attack=弱点を突く（weakness の手がかり）、engage=目的に応じる（purpose）、
+// withdraw=正体を悟って縁を断つ（nature）。各ルートの clueIndexes は対応する hint を持つ手がかりに限る。
+// 調書の枠が埋まる＝そのルートが開く、をプレイヤーにそのまま見せるため（ROUTE_ASPECT）。
 
-import type { Clue } from '@/lib/game/types';
+import type { Clue, RouteDirection } from '@/lib/game/types';
 
 export type EntityMotif = {
   /** 異名の候補。生成時に 1 つ選ぶ */
@@ -10,16 +14,13 @@ export type EntityMotif = {
   appearance: string;
   nature: string;
   purpose: string;
-  /** 弱点の説明文。requiredClueIds は weaknessClueIndexes から解決する */
+  /** 弱点の説明文。エンディングで開示する */
   weaknessLabel: string;
   manifestation: string;
-  clearCondition: string;
-  /** ちょうど 7 個。生成時にここから 5〜7 個を選ぶ */
+  /** ちょうど 7 個。すべて盤面に出す */
   cluePool: Omit<Clue, 'id'>[];
-  /** クリア条件が前提にする手がかりの、cluePool 内の添字（1〜3 個） */
-  clearClueIndexes: number[];
-  /** 弱点を見抜くのに要る手がかりの、cluePool 内の添字 */
-  weaknessClueIndexes: number[];
+  /** 決着ルート。description は Jev の meets_clear に渡す条件文、clueIndexes は cluePool の添字（1〜3 個） */
+  routes: Record<RouteDirection, { description: string; clueIndexes: number[] }>;
 };
 
 export const entityMotifs: EntityMotif[] = [
@@ -31,8 +32,6 @@ export const entityMotifs: EntityMotif[] = [
     purpose: '自らを記録し続ける目を確保し、観測所の時刻をすべて自分の側へ引き寄せること。',
     weaknessLabel: '観測所のすべての灯りを同時に落とし、記録の途切れを作ること',
     manifestation: '記録が連続して取られた夜が三日続くと、ドームの接眼部に現れる。',
-    clearCondition:
-      '配電盤の手順どおりに観測所の灯りをすべて同時に落とし、記録を意図的に途切れさせる',
     cluePool: [
       {
         text: '像の縁が、見つめている間だけ濃くなる。目を逸らすと、逸らした先に薄い残りが移る。',
@@ -63,8 +62,22 @@ export const entityMotifs: EntityMotif[] = [
         hints: ['nature'],
       },
     ],
-    clearClueIndexes: [1, 2],
-    weaknessClueIndexes: [1],
+    routes: {
+      attack: {
+        description:
+          '配電盤の手順どおりに観測所の灯りをすべて同時に落とし、記録を意図的に途切れさせる',
+        clueIndexes: [1, 2],
+      },
+      engage: {
+        description:
+          '接眼部に自分の目を当て、観測日誌の今夜のぶんを自分の手で最後まで書き、記録の続きを引き受けると告げる',
+        clueIndexes: [3, 4],
+      },
+      withdraw: {
+        description: '像から目を逸らしたまま、一度も振り返らずに観測ドームを出て、観測を打ち切る',
+        clueIndexes: [0, 5],
+      },
+    },
   },
 
   {
@@ -73,9 +86,8 @@ export const entityMotifs: EntityMotif[] = [
       '停まった改札機の向こうに、背の高い人影が立っている。手元だけが速く、何かを数え続けている。',
     nature: '通り過ぎた人間の数を数え続ける、廃された改札そのもの。',
     purpose: '数え落としを埋めること。記録に残らなかった通過者を、今からでも数に含めること。',
-    weaknessLabel: '数えた総数を声に出して読み上げさせ、その途中で数を狂わせること',
+    weaknessLabel: '計数器の総数を手で狂わせ、数え直せない値に固定すること',
     manifestation: '最終列車のあと、改札を戻る向きに一人だけ通ると現れる。',
-    clearCondition: '改札機の計数器を手で回し、記録された総数を一致しない値へずらして固定する',
     cluePool: [
       {
         text: '人影の手が刻む拍が、こちらの足音と同じ間隔になっている。止まると、拍も止まる。',
@@ -106,8 +118,21 @@ export const entityMotifs: EntityMotif[] = [
         hints: ['weakness'],
       },
     ],
-    clearClueIndexes: [1, 2, 6],
-    weaknessClueIndexes: [2],
+    routes: {
+      attack: {
+        description: '改札機の計数器を手で回し、記録された総数を一致しない値へずらして固定する',
+        clueIndexes: [1, 2, 6],
+      },
+      engage: {
+        description:
+          '改札を正しい向きに通り直して切符を渡し、数え落とされた一人として自分を数に加えさせる',
+        clueIndexes: [3, 4],
+      },
+      withdraw: {
+        description: '足音を立てずに改札の前から離れ、名前を呼ばれても応えず、数えられないまま駅を出る',
+        clueIndexes: [0, 5],
+      },
+    },
   },
 
   {
@@ -116,9 +141,8 @@ export const entityMotifs: EntityMotif[] = [
       '海沿いの中継所の卓に、水に濡れた人の形が腰かけている。口の位置だけが、いつもわずかに開いている。',
     nature: '他人の声を借りてしか発声できない、溺れた通信士の習慣。',
     purpose: '自分の声を一つ手に入れ、途切れた最後の通信文を最後まで送り切ること。',
-    weaknessLabel: '送信機を切らずに、自分の声で最後まで通信文を読み上げてしまうこと',
+    weaknessLabel: '送信機を切らずに、未完の通信文を電鍵で最後まで打ち切ってしまうこと',
     manifestation: '中継所の受信機が無人のまま三度応答を返した夜に現れる。',
-    clearCondition: '送信記録に残る未完の通信文を、途中で言い換えずに最後まで送信して終わらせる',
     cluePool: [
       {
         text: 'それが言葉を出す直前、こちらの喉が勝手に動く。音はこちらから出ていない。',
@@ -149,8 +173,21 @@ export const entityMotifs: EntityMotif[] = [
         hints: ['weakness'],
       },
     ],
-    clearClueIndexes: [1, 6],
-    weaknessClueIndexes: [2],
+    routes: {
+      attack: {
+        description: '声を出さず、送信記録に残る未完の通信文を電鍵で最後まで打って送信を終わらせる',
+        clueIndexes: [1, 6],
+      },
+      engage: {
+        description:
+          '自分の声を貸すと告げ、それの口の動きに合わせて通信文を途中で言い換えず最後まで代読する',
+        clueIndexes: [3, 5],
+      },
+      withdraw: {
+        description: '一言も発さず、喉を押さえたまま中継所を出て、声を借りる相手を残さない',
+        clueIndexes: [0, 4],
+      },
+    },
   },
 
   {
@@ -161,7 +198,6 @@ export const entityMotifs: EntityMotif[] = [
     purpose: '峠の距離を自分の測り値に合わせ直し、道そのものを短くしてしまうこと。',
     weaknessLabel: '測量の基点となる杭を抜き、測り直す先を失わせること',
     manifestation: '同じ道を往復した者が、行きと帰りで歩数を違えた日に現れる。',
-    clearCondition: '小屋の記録が基点としている杭を地面から抜き、基点のない状態にする',
     cluePool: [
       {
         text: '雪の上の足跡が、すべて小屋へ向かっている。出ていった跡が一つもない。',
@@ -192,8 +228,21 @@ export const entityMotifs: EntityMotif[] = [
         hints: ['purpose'],
       },
     ],
-    clearClueIndexes: [2, 3],
-    weaknessClueIndexes: [5],
+    routes: {
+      attack: {
+        description: '小屋の記録が基点としている杭を地面から抜き、基点のない状態にする',
+        clueIndexes: [2, 3],
+      },
+      engage: {
+        description:
+          '野帳の測り値を正として受け入れ、峠の標識の距離をその数字に彫り直して測量を終わらせてやる',
+        clueIndexes: [1, 6],
+      },
+      withdraw: {
+        description: '一歩も引き返さず、来たときと同じ歩数で峠を下り、測り直す道を与えずに離れる',
+        clueIndexes: [0, 4],
+      },
+    },
   },
 ];
 

@@ -10,7 +10,7 @@ const state: JevState = {
   scene: '薄い像が接眼部の手前に立っている。',
   investigator: {
     occupation: '気象観測技師',
-    skills: { investigate: 65, combat: 25, persuade: 40, escape: 50, occult: 15, stealth: 35 },
+    skills: { investigate: 65, combat: 25, persuade: 40, escape: 50 },
     items: ['携帯用の照度計'],
     hp: 10,
     sanity: 10,
@@ -22,10 +22,8 @@ const state: JevState = {
 type Answers = Record<string, { type: string; choice?: string; score?: number; probability?: number }>;
 
 const fullAnswers = (over: Partial<Answers> = {}): Answers => ({
-  skill: { type: 'choice', choice: 'occult' },
   plausibility: { type: 'score', score: 3.4 },
   horror_exposure: { type: 'score', score: 2.2 },
-  exploits_weakness: { type: 'boolean', probability: 0.8 },
   meets_clear: { type: 'boolean', probability: 0.2 },
   meta_cheat: { type: 'boolean', probability: 0.1 },
   ...over,
@@ -49,16 +47,14 @@ describe('judge の正規化', () => {
     const { model, spy } = mock(() => ({
       answers: fullAnswers(),
       warnings: [],
-      providerMetadata: { typesafe: { confidence: { skill: 0.82, plausibility: 0.6 } } },
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.82, horror_exposure: 0.6 } } },
     }));
 
     const judgment = await judge(state, 'すべての灯りを同時に落とす', model);
 
     expect(judgment).toEqual({
-      skill: 'occult',
       plausibility: 3.4,
       horrorExposure: 2.2,
-      exploitsWeakness: true, // 0.8 >= 0.7
       meetsClear: false, // 0.2 < 0.7
       metaCheat: false, // 0.1 < 0.6
       confidence: 0.82,
@@ -71,19 +67,31 @@ describe('judge の正規化', () => {
   it('しきい値の境界では真に倒す', async () => {
     const { model } = mock(() => ({
       answers: fullAnswers({
-        exploits_weakness: { type: 'boolean', probability: confidenceThresholds.exploitsWeakness },
         meets_clear: { type: 'boolean', probability: confidenceThresholds.meetsClear },
         meta_cheat: { type: 'boolean', probability: confidenceThresholds.metaCheat },
       }),
       warnings: [],
-      providerMetadata: { typesafe: { confidence: { skill: 0.9 } } },
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.9 } } },
     }));
 
     const judgment = await judge(state, 'cc', model);
 
-    expect(judgment.exploitsWeakness).toBe(true);
     expect(judgment.meetsClear).toBe(true);
     expect(judgment.metaCheat).toBe(true);
+  });
+
+  it('ルートのない observe では meets_clear を訊かず、meetsClear は false', async () => {
+    const { model, spy } = mock(() => ({
+      answers: fullAnswers({ meets_clear: undefined }),
+      warnings: [],
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.9 } } },
+    }));
+
+    const judgment = await judge(state, null, model);
+
+    expect(judgment.meetsClear).toBe(false);
+    const options = spy.mock.calls[0][0] as { questions: Record<string, unknown> };
+    expect(options.questions.meets_clear).toBeUndefined();
   });
 
   // 範囲外の score は evaluate 側でも弾かれるが、正規化にも同じ防衛線を置く
@@ -93,7 +101,7 @@ describe('judge の正規化', () => {
         plausibility: { type: 'score', score: 9 },
         horror_exposure: { type: 'score', score: -1 },
       }),
-      providerMetadata: { typesafe: { confidence: { skill: 0.9 } } },
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.9 } } },
     });
 
     expect(judgment.plausibility).toBe(4);
@@ -113,7 +121,7 @@ describe('judge の正規化', () => {
     const { model, spy } = mock(() => ({
       answers: fullAnswers(),
       warnings: [],
-      providerMetadata: { typesafe: { confidence: { skill: 0.9 } } },
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.9 } } },
     }));
 
     await judge(state, 'cc', model);
@@ -125,10 +133,8 @@ describe('judge の正規化', () => {
 
 describe('judge のフォールバック', () => {
   const fallback = {
-    skill: 'investigate',
     plausibility: 2,
     horrorExposure: 1,
-    exploitsWeakness: false,
     meetsClear: false,
     metaCheat: false,
     confidence: 0,
@@ -152,19 +158,9 @@ describe('judge のフォールバック', () => {
     expect(await judge(state, 'cc', model)).toEqual(fallback);
   });
 
-  it('未知の技能キーで fallback に落ちる', async () => {
-    const { model } = mock(() => ({
-      answers: fullAnswers({ skill: { type: 'choice', choice: 'telepathy' } }),
-      warnings: [],
-      providerMetadata: { typesafe: { confidence: { skill: 0.9 } } },
-    }));
-
-    expect(await judge(state, 'cc', model)).toEqual(fallback);
-  });
-
   it('フィールドが欠損した応答で fallback に落ちる', async () => {
     const { model } = mock(() => ({
-      answers: { skill: { type: 'choice', choice: 'combat' } },
+      answers: { plausibility: { type: 'score', score: 2 } },
       warnings: [],
     }));
 

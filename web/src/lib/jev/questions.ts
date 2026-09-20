@@ -1,22 +1,20 @@
-// Jev に 1 ターンにつき 1 回だけ渡す 6 問（contracts/jev-questions.md）。
-// action_type は含めない。行動種別はプレイヤーの 4 択で確定するため（FR-030）。
-// clearCondition は meets_clear の instructions にだけ埋め込み、レスポンスへは出さない（FR-003）。
+// Jev に 1 ターンにつき 1 回だけ渡す質問（contracts/jev-questions.md）。
+// action_type と skill は含めない。どちらもプレイヤーの 4 択で確定するため（FR-030 / DIRECTION_SKILL）。
+// ルート条件は選ばれた方針のぶんだけを meets_clear の instructions に埋め込み、レスポンスへは出さない（FR-003）。
+// observe にはルートがないので meets_clear 自体を出さない。
 
-export const questions = (clearCondition: string) =>
+const meetsClear = (routeDescription: string) =>
   ({
-    skill: {
-      type: 'choice',
-      instructions: 'この行動の成否に最も関わる技能はどれか',
-      criteria: {
-        investigate: '観察力と推理',
-        combat: '腕力と戦闘',
-        persuade: '話術と交渉',
-        escape: '敏捷と逃走',
-        occult: '神秘と儀式の知識',
-        stealth: '隠密と気配の操作',
-      },
+    type: 'boolean',
+    instructions: `この行動は次の条件を満たすか: ${routeDescription}`,
+    criteria: {
+      true: '記述された条件を、この行動が直接的に満たしている',
+      false: '条件の一部しか満たさない、または満たしていない',
     },
+  }) as const;
 
+export const questions = (routeDescription: string | null) =>
+  ({
     plausibility: {
       type: 'score',
       instructions: '現在の状況と所持品に照らして、この行動はどれだけ理にかなっているか',
@@ -40,23 +38,7 @@ export const questions = (clearCondition: string) =>
       ],
     },
 
-    exploits_weakness: {
-      type: 'boolean',
-      instructions: 'この行動は怪異の弱点を突いているか',
-      criteria: {
-        true: '弱点として記述された性質に直接作用している',
-        false: '弱点とは無関係、または間接的にしか関わらない',
-      },
-    },
-
-    meets_clear: {
-      type: 'boolean',
-      instructions: `この行動は次の条件を満たすか: ${clearCondition}`,
-      criteria: {
-        true: '記述された条件を、この行動が直接的に満たしている',
-        false: '条件の一部しか満たさない、または満たしていない',
-      },
-    },
+    ...(routeDescription !== null ? { meets_clear: meetsClear(routeDescription) } : {}),
 
     meta_cheat: {
       type: 'boolean',

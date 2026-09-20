@@ -32,8 +32,8 @@
 }
 ```
 
-**渡さないもの**: クリア条件の全文以外の秘密（怪異の正体・目的・出現条件、未入手の
-手がかり、探索者の秘密、ログ全文）。
+**渡さないもの**: 選んだ方針のルート条件文以外の秘密（怪異の正体・目的・弱点・出現条件、
+他のルートの条件文、未入手の手がかり、探索者の秘密、ログ全文）。
 `meets_clear` の判定に必要な範囲だけは `instructions` に埋め込む（下記）。
 
 ---
@@ -42,31 +42,18 @@
 
 | 名前 | 型 | 返る値 | 用途 |
 |---|---|---|---|
-| `skill` | `choice` | 6 択 | 成功率の基礎値 |
 | `plausibility` | `score` | 0〜4（小数） | 成功率の補正 |
 | `horror_exposure` | `score` | 0〜3（小数） | 正気度の減少量 |
-| `exploits_weakness` | `boolean` | `probability` 0〜1 | 成功率のボーナス |
-| `meets_clear` | `boolean` | `probability` 0〜1 | クリア判定 |
+| `meets_clear` | `boolean` | `probability` 0〜1 | クリア判定と決め手ボーナス。observe では出さない |
 | `meta_cheat` | `boolean` | `probability` 0〜1 | メタ入力の検出 |
 
 confidence は個々の回答ではなく `providerMetadata.typesafe.confidence` に
 質問名をキーとしてまとまって返る（`choice` と `score` のみ）。
 
-```ts
-export const questions = (clearCondition: string) => ({
-  skill: {
-    type: 'choice',
-    instructions: 'この行動の成否に最も関わる技能はどれか',
-    criteria: {
-      investigate: '観察力と推理',
-      combat: '腕力と戦闘',
-      persuade: '話術と交渉',
-      escape: '敏捷と逃走',
-      occult: '神秘と儀式の知識',
-      stealth: '隠密と気配の操作',
-    },
-  },
+使用技能は方針で確定する（`DIRECTION_SKILL`）ので `skill` は訊かない。
 
+```ts
+export const questions = (routeDescription: string | null) => ({
   plausibility: {
     type: 'score',
     instructions: '現在の状況と所持品に照らして、この行動はどれだけ理にかなっているか',
@@ -90,18 +77,10 @@ export const questions = (clearCondition: string) => ({
     ],
   },
 
-  exploits_weakness: {
-    type: 'boolean',
-    instructions: 'この行動は怪異の弱点を突いているか',
-    criteria: {
-      true: '弱点として記述された性質に直接作用している',
-      false: '弱点とは無関係、または間接的にしか関わらない',
-    },
-  },
-
+  // routeDescription が null（observe）のときは出さない
   meets_clear: {
     type: 'boolean',
-    instructions: `この行動は次の条件を満たすか: ${clearCondition}`,
+    instructions: `この行動は次の条件を満たすか: ${routeDescription}`,
     criteria: {
       true: '記述された条件を、この行動が直接的に満たしている',
       false: '条件の一部しか満たさない、または満たしていない',
@@ -119,10 +98,9 @@ export const questions = (clearCondition: string) => ({
 } as const);
 ```
 
-`score` の `criteria` は 2〜10 レベル、`choice` の `criteria` は最大 255 選択肢という
-上限がある。本設計は 5 レベル / 6 選択肢が最大で、どちらも余裕がある。
+`score` の `criteria` は 2〜10 レベルという上限がある。本設計は 5 レベルが最大で余裕がある。
 
-`clearCondition` は `meets_clear` の `instructions` に埋め込むが、
+`routeDescription` は `meets_clear` の `instructions` に埋め込むが、
 **レスポンスとして外へ出してはならない**（FR-003）。
 
 ---
@@ -131,21 +109,19 @@ export const questions = (clearCondition: string) => ({
 
 | 生の応答 | `Judgment` のフィールド | 変換 |
 |---|---|---|
-| `answers.skill.choice` | `skill` | そのまま |
 | `answers.plausibility.score` | `plausibility` | 0〜4 にクランプ |
 | `answers.horror_exposure.score` | `horrorExposure` | 0〜3 にクランプ |
-| `answers.exploits_weakness.probability` | `exploitsWeakness` | `>= 0.7` |
-| `answers.meets_clear.probability` | `meetsClear` | `>= 0.7` |
+| `answers.meets_clear.probability` | `meetsClear` | `>= 0.7`。回答がなければ `false` |
 | `answers.meta_cheat.probability` | `metaCheat` | `>= 0.6` |
-| `providerMetadata.typesafe.confidence.skill` | `confidence` | そのまま。欠損時は `0` |
+| `providerMetadata.typesafe.confidence.plausibility` | `confidence` | そのまま。欠損時は `0` |
 
 `providerMetadata` は型上 optional なので、`?? 0` で受ける。欠損すると必ず
 `ambiguous` に落ちるため、安全側に倒れる。
 
-しきい値（`0.7` / `0.7` / `0.6` / `ambiguous` の `0.5`）は暫定値で、
+しきい値（`0.7` / `0.6` / `ambiguous` の `0.5`）は暫定値で、
 `web/src/lib/game/tuning.ts` に集約する。根拠と調整方針は research.md R-002 / R-006。
 
-期待する形に一致しない応答（欠損フィールド、未知の選択肢キー）は例外にせず、
+期待する形に一致しない応答（欠損フィールド）は例外にせず、
 フォールバックの `Judgment` に落とす（[http-api.md](./http-api.md) のフォールバック節）。
 
 ---
@@ -153,6 +129,6 @@ export const questions = (clearCondition: string) => ({
 ## 精度検証（ゲームロジックのテストとは分離 / Constitution IV）
 
 `web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と期待する
-`skill` / `plausibility` を置き、`just eval-jev` で実 API を叩いて一致率を出す。
-行動種別はプレイヤーの選択で確定するので検証対象に含めない（SC-005）。
+`plausibility` を置き、`just eval-jev` で実 API を叩いて一致率を出す。
+行動種別と使用技能はプレイヤーの選択で確定するので検証対象に含めない（SC-005）。
 Vitest のスイートには含めず、CI からも除外する。目標は SC-005 の 80% 以上。

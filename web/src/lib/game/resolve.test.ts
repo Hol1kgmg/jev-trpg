@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { fixedGameState } from './fixture';
 import { previewBreakdown, rateBreakdown, resolveTurn, successRate } from './resolve';
-import { plausibilityMod, rateMax, rateMin, weaknessBonus } from './tuning';
+import { plausibilityMod, rateMax, rateMin, routeBonus } from './tuning';
 import type { GameState, Judgment } from './types';
 
 const baseJudgment: Judgment = {
-  skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
-  exploitsWeakness: false,
   meetsClear: false,
   metaCheat: false,
   confidence: 0.9,
@@ -21,50 +19,65 @@ const rollOnce = (roll: number) => () => (roll - 1) / 100;
 /** ロールすればファンブルになる出目。これでも結果が変わらないなら d100 を経ていない */
 const wouldFumble = rollOnce(100);
 
+/** attack ルートの前提を揃えた状態 */
+const attackReady = (): GameState => ({ ...fixedGameState(), acquiredClueIds: ['c-02', 'c-05'] });
+
 describe('successRate', () => {
-  it('plausibility 0〜4 で tuning.ts の表どおりに動く', () => {
+  it('技能は方針で確定し、plausibility 0〜4 で tuning.ts の表どおりに動く', () => {
     const state = fixedGameState();
     const skill = state.investigator.skills.investigate; // 65
     for (const p of [0, 1, 2, 3, 4]) {
-      const rate = successRate(state, { ...baseJudgment, plausibility: p });
+      const rate = successRate(state, 'observe', { ...baseJudgment, plausibility: p });
       expect(rate).toBe(Math.min(rateMax, Math.max(rateMin, skill + plausibilityMod[p])));
     }
+    expect(successRate(state, 'attack', baseJudgment)).toBe(25);
+    expect(successRate(state, 'engage', baseJudgment)).toBe(40);
+    expect(successRate(state, 'withdraw', baseJudgment)).toBe(50);
   });
 
   it('rate が下限にクランプされる', () => {
     const state = fixedGameState();
-    // occult 15 + plausibilityMod[0] (-40) = -25
-    expect(successRate(state, { ...baseJudgment, skill: 'occult', plausibility: 0 })).toBe(rateMin);
+    // combat 25 + plausibilityMod[0] (-40) = -15
+    expect(successRate(state, 'attack', { ...baseJudgment, plausibility: 0 })).toBe(rateMin);
   });
 
   it('rate が上限にクランプされる', () => {
-    const state: GameState = { ...fixedGameState(), acquiredClueIds: ['c-02'] };
-    // investigate 65 + 30 + weaknessBonus 20 = 115
-    const rate = successRate(state, { ...baseJudgment, plausibility: 4, exploitsWeakness: true });
-    expect(rate).toBe(rateMax);
+    // investigate 65 + 30 = 95、さらに withdraw 50 + 30 + routeBonus 20 = 100 → 95
+    expect(successRate(fixedGameState(), 'observe', { ...baseJudgment, plausibility: 4 })).toBe(rateMax);
+    const state: GameState = { ...fixedGameState(), acquiredClueIds: ['c-01', 'c-06'] };
+    expect(
+      successRate(state, 'withdraw', { ...baseJudgment, plausibility: 4, meetsClear: true }),
+    ).toBe(rateMax);
   });
 
-  it('weaknessBonus は前提手がかりを所持している場合だけ乗る', () => {
-    const without = fixedGameState();
-    const withClue: GameState = { ...without, acquiredClueIds: ['c-02'] };
-    const judgment = { ...baseJudgment, skill: 'combat' as const, exploitsWeakness: true };
-    expect(successRate(withClue, judgment) - successRate(without, judgment)).toBe(weaknessBonus);
+  it('routeBonus は前提が揃ったルートの方針で meetsClear のときだけ乗る', () => {
+    const judgment = { ...baseJudgment, meetsClear: true };
+    expect(successRate(attackReady(), 'attack', judgment) - successRate(fixedGameState(), 'attack', judgment)).toBe(
+      routeBonus,
+    );
+    // 揃っていないルート、条件を満たさない行動、observe には乗らない
+    expect(successRate(attackReady(), 'engage', judgment)).toBe(40);
+    expect(successRate(attackReady(), 'attack', baseJudgment)).toBe(25);
+    expect(successRate(attackReady(), 'observe', judgment)).toBe(65);
   });
 });
 
 describe('rateBreakdown / previewBreakdown（ADR 0004）', () => {
   it('内訳の和が rate と一致する', () => {
-    const state: GameState = { ...fixedGameState(), acquiredClueIds: ['c-02'] };
-    const b = rateBreakdown(state, { ...baseJudgment, plausibility: 3, exploitsWeakness: true });
-    expect(b).toEqual({ skill: 'investigate', base: 65, plausibility: 15, weakness: 20, rate: 95 });
-    expect(b.base + b.plausibility + b.weakness).toBeGreaterThanOrEqual(b.rate); // クランプ
+    const b = rateBreakdown(attackReady(), 'attack', {
+      ...baseJudgment,
+      plausibility: 3,
+      meetsClear: true,
+    });
+    expect(b).toEqual({ skill: 'combat', base: 25, plausibility: 15, route: 20, rate: 60 });
+    expect(b.base + b.plausibility + b.route).toBe(b.rate);
   });
 
   it('ロールしない判定では null（見せる補正がない）', () => {
     const state = fixedGameState();
-    expect(previewBreakdown(state, { ...baseJudgment, confidence: 0.4 })).toBeNull();
-    expect(previewBreakdown(state, { ...baseJudgment, metaCheat: true })).toBeNull();
-    expect(previewBreakdown(state, baseJudgment)?.rate).toBe(65);
+    expect(previewBreakdown(state, 'observe', { ...baseJudgment, confidence: 0.4 })).toBeNull();
+    expect(previewBreakdown(state, 'observe', { ...baseJudgment, metaCheat: true })).toBeNull();
+    expect(previewBreakdown(state, 'observe', baseJudgment)?.rate).toBe(65);
   });
 });
 
@@ -97,7 +110,7 @@ describe('resolveTurn', () => {
       skill: 'investigate',
       base: 65,
       plausibility: 0,
-      weakness: 0,
+      route: 0,
       rate: 65,
       roll: 42,
     });
@@ -182,13 +195,41 @@ describe('resolveTurn', () => {
     expect(result.state).toEqual(ended);
     expect(result.delta).toEqual({ hp: 0, sanity: 0, clueId: null });
   });
+
+  it('決着の幕切れは方針ごとに違う文面になる', () => {
+    const judgment = { ...baseJudgment, meetsClear: true };
+    const attack = resolveTurn(attackReady(), 'attack', '灯りを落とす', judgment, rollOnce(10));
+    const withdraw = resolveTurn(
+      { ...fixedGameState(), acquiredClueIds: ['c-01', 'c-06'] },
+      'withdraw',
+      '振り返らずに出る',
+      judgment,
+      rollOnce(10),
+    );
+    expect(attack.state.ending?.reason).toBe('clear');
+    expect(withdraw.state.ending?.reason).toBe('clear');
+    expect(attack.state.ending?.text).not.toBe(withdraw.state.ending?.text);
+  });
 });
 
 describe('手がかりの入手（AS 2-1 / AS 2-2）', () => {
-  it('observe の成功で 1 件増える', () => {
+  it('observe の成功で 1 件増え、正気度は減らない', () => {
     const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(20));
     expect(result.state.acquiredClueIds).toHaveLength(1);
     expect(result.delta.clueId).toBe('c-01');
+    expect(result.delta.sanity).toBe(0);
+  });
+
+  it('observe の失敗でも 1 件増えるが、正気度で払う', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(90));
+    expect(result.state.acquiredClueIds).toEqual(['c-01']);
+    expect(result.delta.sanity).toBeLessThan(0);
+    expect(result.state.log[0].narration).toContain(fixedGameState().clues['c-01'].text);
+  });
+
+  it('observe の致命的失敗では増えない', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(100));
+    expect(result.state.acquiredClueIds).toEqual([]);
   });
 
   it('observe 以外では成功しても増えない', () => {
@@ -198,12 +239,7 @@ describe('手がかりの入手（AS 2-1 / AS 2-2）', () => {
     }
   });
 
-  it('observe でも失敗なら増えない', () => {
-    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(90));
-    expect(result.state.acquiredClueIds).toEqual([]);
-  });
-
-  it('出し尽くしたあとの observe 成功では増えない（AS 2-2）', () => {
+  it('出し尽くしたあとの observe では増えない（AS 2-2）', () => {
     const base = fixedGameState();
     const all = Object.keys(base.clues);
     const state: GameState = { ...base, acquiredClueIds: all };

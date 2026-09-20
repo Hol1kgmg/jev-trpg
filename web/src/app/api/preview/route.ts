@@ -5,7 +5,7 @@
 import { turnRequest } from '@/lib/api/schema';
 import { previewBreakdown } from '@/lib/game/resolve';
 import { previewLimit } from '@/lib/game/tuning';
-import { judge } from '@/lib/jev/client';
+import { judge, routeDescription } from '@/lib/jev/client';
 import { jevState } from '@/lib/jev/state';
 import { seal, unseal } from '@/lib/seal';
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'preview_exhausted', previews }, { status: 429 });
   }
 
-  const judgment = await judge(jevState(state, direction, detail), state.clearCondition.description);
+  const judgment = await judge(jevState(state, direction, detail), routeDescription(state, direction));
   // 失敗した判定は残さない。実行時にあらためて判定する
   const preview = judgment.source === 'fallback' ? null : { direction, detail, judgment };
   const next = { ...state, previews: previews + 1, preview };
@@ -37,6 +37,6 @@ export async function POST(request: Request) {
   return Response.json({
     sealed: seal(next),
     previews: next.previews,
-    rate: preview ? previewBreakdown(next, judgment) : null,
+    rate: preview ? previewBreakdown(next, direction, judgment) : null,
   });
 }

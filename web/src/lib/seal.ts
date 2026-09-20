@@ -7,7 +7,7 @@ import type { GameState } from './game/types';
 import { MAX_TURN } from './game/types';
 
 /** GameState のスキーマ版。型を変えたら上げる（既存セーブは開封失敗になる） */
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;

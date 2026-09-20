@@ -1,20 +1,33 @@
 // data-model.md の全型。永続化先は localStorage のみで、DB スキーマは存在しない。
 
-export type SkillId = 'investigate' | 'combat' | 'persuade' | 'escape' | 'occult' | 'stealth';
+export type SkillId = 'investigate' | 'combat' | 'persuade' | 'escape';
 
-export const SKILL_IDS: readonly SkillId[] = [
-  'investigate',
-  'combat',
-  'persuade',
-  'escape',
-  'occult',
-  'stealth',
-] as const;
+export const SKILL_IDS: readonly SkillId[] = ['investigate', 'combat', 'persuade', 'escape'] as const;
 
 /** プレイヤーが毎ターン 4 択から選ぶ行動の方向性（FR-006 / FR-030） */
 export const DIRECTIONS = ['observe', 'attack', 'engage', 'withdraw'] as const;
 
 export type Direction = (typeof DIRECTIONS)[number];
+
+/** 方針と技能は 1 対 1。ロールに使う技能は方針で確定し、Jev には尋ねない */
+export const DIRECTION_SKILL: Record<Direction, SkillId> = {
+  observe: 'investigate',
+  attack: 'combat',
+  engage: 'persuade',
+  withdraw: 'escape',
+};
+
+/** 決着に至る方針。観察は手がかりを得るだけで決着しない */
+export const ROUTE_DIRECTIONS = ['attack', 'engage', 'withdraw'] as const;
+
+export type RouteDirection = (typeof ROUTE_DIRECTIONS)[number];
+
+/** 各ルートが要る調書の枠。枠が埋まる＝そのルートで決着できる、を UI にそのまま写す */
+export const ROUTE_ASPECT: Record<RouteDirection, Clue['hints'][number]> = {
+  attack: 'weakness',
+  engage: 'purpose',
+  withdraw: 'nature',
+};
 
 /** 描写テンプレートのキーになる段階。turn から導出し、GameState には保存しない */
 export type EntityStage = 'appearance' | 'agitation' | 'frenzy';
@@ -38,27 +51,21 @@ export type Investigator = {
   sanity: number;
 };
 
-export type Weakness = {
-  id: string;
-  label: string;
-  requiredClueIds: string[];
-};
-
 /** epithet と appearance のみ可視。それ以外は秘密 */
 export type Entity = {
   epithet: string;
   appearance: string;
   nature: string;
   purpose: string;
-  weakness: Weakness;
+  weakness: string;
   manifestation: string;
 };
 
-/** 全フィールドが秘密。FR-003 によりクライアントへ一切送らない */
-export type ClearCondition = {
-  id: string;
+/** 決着ルート 1 本。全フィールドが秘密で、揃ったかどうか（真偽）だけを可視にする */
+export type Route = {
+  /** Jev の meets_clear の instructions に埋め込む条件文 */
   description: string;
-  /** 1〜3 個 */
+  /** 1〜3 個。すべて入手済みでなければ成立しない */
   requiredClueIds: string[];
 };
 
@@ -70,7 +77,7 @@ export type Clue = {
 
 /**
  * 成功率の内訳。プレイヤーに開示する（事前判定と実行後ログで同じ形）。
- * rate = clamp(base + plausibility + weakness, rateMin, rateMax)
+ * rate = clamp(base + plausibility + route, rateMin, rateMax)
  */
 export type RateBreakdown = {
   skill: SkillId;
@@ -78,8 +85,8 @@ export type RateBreakdown = {
   base: number;
   /** plausibility による補正（負もありうる） */
   plausibility: number;
-  /** 弱点ボーナス。乗らなければ 0 */
-  weakness: number;
+  /** 決め手ボーナス。手がかりの揃ったルートの条件を満たす行動にだけ乗る。乗らなければ 0 */
+  route: number;
   rate: number;
 };
 
@@ -103,7 +110,7 @@ export type LogEntry = {
 };
 
 export type Ending = {
-  reason: 'clear' | 'death' | 'madness' | 'timeout';
+  reason: 'clear' | 'death' | 'madness' | 'timeout' | 'retire';
   text: string;
   reveal: { nature: string; purpose: string; weakness: string; secret: string };
 };
@@ -116,7 +123,8 @@ export type GameState = {
   version: number;
   investigator: Investigator;
   entity: Entity;
-  clearCondition: ClearCondition;
+  routes: Record<RouteDirection, Route>;
+  /** 挿入順＝観察で手に入る順 */
   clues: Record<string, Clue>;
   turn: number;
   acquiredClueIds: string[];
@@ -143,21 +151,22 @@ export type VisibleState = {
   entityAppearance: string;
   /** hints は「どの側面に関わるか」の分類だけで、隠す本文（nature 等）は含まない */
   acquiredClues: { id: string; text: string; hints: Clue['hints'] }[];
+  /** 必要な手がかりが揃い、決着を狙える方針。条件文は含まない */
+  readyDirections: RouteDirection[];
   log: LogEntry[];
   ending: Ending | null;
 };
 
 /** Jev の生応答をコード側で正規化した値。これ自体はゲーム状態を変えない（Constitution I） */
 export type Judgment = {
-  skill: SkillId;
   /** score 0..4（小数。使用時に丸める） */
   plausibility: number;
   /** score 0..3（小数） */
   horrorExposure: number;
-  exploitsWeakness: boolean;
+  /** 選んだ方針のルート条件を満たすか。observe では常に false */
   meetsClear: boolean;
   metaCheat: boolean;
-  /** skill の confidence 0..1（欠損時は 0） */
+  /** plausibility の confidence 0..1（欠損時は 0） */
   confidence: number;
   source: 'jev' | 'fallback';
 };

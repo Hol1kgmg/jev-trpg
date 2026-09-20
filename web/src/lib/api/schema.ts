@@ -14,3 +14,5 @@ export const turnRequest = z.object({
 });
 
 export type TurnRequest = z.infer<typeof turnRequest>;
+
+export const retireRequest = turnRequest.pick({ sealed: true });

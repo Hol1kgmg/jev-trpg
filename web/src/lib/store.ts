@@ -22,7 +22,7 @@ export type Save = { sealed: string; visible: VisibleState; phase: Phase };
 const STORAGE_KEY = 'jev-trpg/save';
 
 /** 保存形式の版。形を変えたら上げる（既存の保存値は復元されず新規プレイに落ちる） */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 3;
 
 /** 壊れた保存値・版違い・localStorage が使えない環境では null。例外は投げない（AS 3-2） */
 export function loadSave(): Save | null {
@@ -76,6 +76,8 @@ type GameStore = {
   /** 事前判定。Jev を 1 回呼び、成功率の内訳だけを受け取る（ADR 0004） */
   requestPreview: (direction: Direction, detail: string) => Promise<void>;
   submit: (direction: Direction, detail: string) => Promise<void>;
+  /** 途中で降りる。決着が付き、以降は submit と同じく状態が変わらない */
+  retire: () => Promise<void>;
 };
 
 export const useGame = create<GameStore>((set, get) => ({
@@ -177,6 +179,31 @@ export const useGame = create<GameStore>((set, get) => ({
         } else {
           set({ error: 'invalid_action' });
         }
+        return;
+      }
+      const data = (await res.json()) as TurnResponse;
+      const save: Save = { sealed: data.sealed, visible: data.visible, phase };
+      writeSave(save);
+      set({ ...save, error: null, preview: null, previewExhausted: false });
+    } catch {
+      set({ error: 'failed' });
+    } finally {
+      set({ sending: false });
+    }
+  },
+
+  retire: async () => {
+    const { sealed, phase, sending } = get();
+    if (sending || sealed === null) return;
+    set({ sending: true, error: null });
+    try {
+      const res = await fetch('/api/retire', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sealed }),
+      });
+      if (!res.ok) {
+        set({ error: 'failed' });
         return;
       }
       const data = (await res.json()) as TurnResponse;

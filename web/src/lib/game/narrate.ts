@@ -2,7 +2,7 @@
 // rng は引数で受けて決定化できるようにする。
 
 import { clueIntroTemplates, exhaustedTemplates } from '@/data/templates/clues';
-import { endingTemplates } from '@/data/templates/endings';
+import { clearTemplates, endingTemplates } from '@/data/templates/endings';
 import { hallucinationTemplates } from '@/data/templates/hallucinations';
 import { metaTemplates } from '@/data/templates/meta';
 import { ambiguousTemplates, byDirection, byStage } from '@/data/templates/outcomes';
@@ -82,6 +82,16 @@ export function narrateOutcome(
   return base;
 }
 
-export function narrateEnding(state: GameState, reason: Ending['reason'], rng: Rng): string {
-  return fill(pick(endingTemplates[reason], rng), varsFor(state, rng));
+/** clear は決着した方針ごとに文面が違う（討伐・取引・離脱）。clear 以外は direction を見ない */
+export function narrateEnding(
+  state: GameState,
+  reason: Ending['reason'],
+  rng: Rng,
+  direction: Direction = 'observe',
+): string {
+  const templates =
+    reason === 'clear'
+      ? clearTemplates[direction === 'observe' ? 'attack' : direction]
+      : endingTemplates[reason];
+  return fill(pick(templates, rng), varsFor(state, rng));
 }
