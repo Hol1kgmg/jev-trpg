@@ -78,6 +78,42 @@ CI（[.github/workflows/ci.yaml](.github/workflows/ci.yaml)）は `nix flake che
 | `web/src/data` | 結果描写などのテンプレート文 |
 | `specs/` / `adr/` | 仕様・設計判断の記録 |
 
+## Jev の担当範囲
+
+Jev が担当するのは**プレイヤーの自由入力の解釈だけ**です。`web/src/lib/jev/client.ts` の `judge()` が
+`Judgment` を返した時点で役目が終わり、成功率・ダイス・HP/正気度・エンディング判定・描写はすべて
+コード側の純関数（`web/src/lib/game`）が担います。
+
+### 質問と使われ方（[contracts/jev-questions.md](specs/001-jev-cosmic-horror-trpg/contracts/jev-questions.md)）
+
+| 質問 | 型 | ゲーム内での使われ方 |
+|---|---|---|
+| `plausibility` | 0〜4 | 成功率補正（`plausibilityMod`）。事前判定で「妥当性 +15」として画面に見える |
+| `horror_exposure` | 0〜3 | 正気度の減少量に加算（`sanityLoss`） |
+| `meets_clear` | 確率 | 手がかりが揃ったルートで条件を満たすと `routeBonus` 加算、成功すればクリア |
+| `meta_cheat` | 確率 | ゲーム外の情報を引き出す入力を検出し、ロールせず `meta` に分岐 |
+| `skill` | 6 択 | 現状は未使用。技能は方針の 4 択から `DIRECTION_SKILL` で確定する |
+| `exploits_weakness` | 確率 | 現状は未使用。正規化はするが消費箇所がない |
+
+`providerMetadata` の confidence が `confidenceThresholds.ambiguous` 未満なら `ambiguous`（ロールしない）に落とします。
+しきい値はすべて `web/src/lib/game/tuning.ts` にあります。
+
+### 呼ばれるタイミング（[ADR 0004](adr/jev-trpg/0004-preview-dice-modifier-before-commit.md)）
+
+- `/api/preview`: 入力が 3 秒止まると自動実行。1 ターン `previewLimit`（10）回まで。結果は封緘に入れて往復させる
+- `/api/turn`: 事前判定と同じ方針・詳細なら再利用して Jev を呼ばない。違えばここで 1 回呼ぶ
+
+### 渡すもの・渡さないもの（`web/src/lib/jev/state.ts`）
+
+- 渡す: 現在の場面描写、探索者の職業・技能・所持品・HP・正気度、入手済み手がかりの本文、方針と詳細入力
+- 渡さない: 怪異の正体・目的、未入手の手がかり、ログ全文。クリア条件は `meets_clear` の instructions にだけ埋め込み、レスポンスには出さない
+
+### 担当しないもの
+
+- 文章生成: 描写とエンディングはテンプレート選択（[ADR 0003](adr/jev-trpg/0003-narrate-from-templates-only.md)）
+- シナリオ生成: `generate.ts` が乱数で組む
+- 失敗時: タイムアウト 5 秒、再試行なし。`fallbackJudgment`（confidence 0）で必ず `ambiguous` に落ち、ゲームは止まらない。`JEV_STUB=1` でスタブに差し替えられる
+
 ## 環境変数
 
 `web/.env.local` に置きます（コミットしない）。
