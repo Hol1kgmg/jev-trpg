@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Cinzel, Shippori_Mincho } from 'next/font/google';
 import './globals.css';
+import { siteName } from '@/lib/site';
 
 // 見出し用の欧文セリフ。和文は含まないので、本文には使わない
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-cinzel' });
@@ -11,7 +12,6 @@ const shippori = Shippori_Mincho({
   variable: '--font-shippori',
 });
 
-const siteName = '静かな観測';
 const description =
   'ブラウザで遊ぶ 1 人用のコズミックホラー TRPG。探索者と怪異はランダム生成。毎ターン「観察・攻撃・働きかけ・退く」から方針を選び、最大 8 ターンで決着する。';
 

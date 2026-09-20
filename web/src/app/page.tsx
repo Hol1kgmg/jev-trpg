@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
+import { siteName } from '@/lib/site';
 import { previewDebounceMs } from '@/lib/game/tuning';
 import {
   DIRECTIONS,
@@ -440,6 +441,7 @@ export default function Page() {
       <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 p-4 sm:p-6 animate-fade-in">
         <Backdrop />
         <header className="grid gap-3 text-center">
+          <p className="font-display text-lg tracking-[0.4em]">{siteName}</p>
           <p className={HEADING}>Cosmic Horror · Solo</p>
           <Epithet className="animate-flicker text-4xl sm:text-5xl">{visible.entityEpithet}</Epithet>
           <div className="flex items-center justify-center gap-4">
