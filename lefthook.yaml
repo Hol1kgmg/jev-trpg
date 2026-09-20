@@ -2,3 +2,6 @@ pre-commit:
   commands:
     gitleaks:
       run: gitleaks protect --staged --verbose
+    web-typecheck:
+      glob: "web/**/*.{ts,tsx}"
+      run: pnpm -C web run typecheck

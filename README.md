@@ -39,8 +39,43 @@ source ~/.zshrc
 direnv allow
 ```
 
-just / gitleaks / lefthook のインストールと Git フックの設定が一括で行われます。
+ツールのインストールと Git フックの設定が一括で行われます。
 以降はリポジトリのディレクトリに入るだけで自動的に環境が有効になります。
+
+```bash
+just setup    # web/ の依存をインストールする
+```
+
+## 開発環境
+
+`direnv` が `flake.nix` の devShell を読み込み、次のツールが PATH に入ります。
+
+| ツール | 用途 |
+|---|---|
+| just | タスクランナー（[justfile](justfile)） |
+| gitleaks / lefthook | pre-commit でステージ済みの差分をシークレット走査する（[lefthook.yaml](lefthook.yaml)） |
+| gh / gh-dash | GitHub 操作 |
+| spec-kit | `specs/` の仕様駆動フロー（`just spec`） |
+| markserv | `just docs` で Markdown を http://localhost:8080 に配信する |
+
+Node.js 20 以上と pnpm は devShell に含まれないので、各自で用意してください（pnpm のバージョンは
+`web/package.json` の `packageManager` に固定してあります）。
+
+エージェント用スキルは `skills.nix` の宣言から devShell 起動時に `.agents/skills` へ同期されます
+（`just skills` / `just skills-list` / `just skills-update`）。
+
+CI（[.github/workflows/ci.yaml](.github/workflows/ci.yaml)）は `nix flake check` のみを実行します。
+アプリの型チェックとテストはローカルの `just check` で回してください。
+
+### ディレクトリ
+
+| パス | 中身 |
+|---|---|
+| `web/src/app` | 画面と Route Handler（`api/new-game`、`api/turn`） |
+| `web/src/lib/jev` | Jev 呼び出しの境界。ここより先は `Judgment` を引数に取る純関数 |
+| `web/src/lib/game` | 生成・判定・状態更新のゲームロジックとチューニング値 |
+| `web/src/data` | 結果描写などのテンプレート文 |
+| `specs/` / `adr/` | 仕様・設計判断の記録 |
 
 ## 環境変数
 
@@ -74,4 +109,8 @@ just update    # flake.lock / sources.lock.json を更新して検証する
 
 `just sync` はマージコミットで取り込みます。PR 経由にする場合も **Create a merge commit** を使ってください（squash / rebase は共通祖先を壊します）。
 
+## ドキュメント
+
+- 仕様・設計・タスク: [specs/001-jev-cosmic-horror-trpg/](specs/001-jev-cosmic-horror-trpg/)（[検証手順](specs/001-jev-cosmic-horror-trpg/quickstart.md)）
+- 実装プランの下書き: [app-spec.md](app-spec.md)
 - 設計判断の記録: [adr/](adr/)

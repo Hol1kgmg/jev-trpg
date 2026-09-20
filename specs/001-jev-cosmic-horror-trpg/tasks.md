@@ -108,9 +108,9 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 
 **Independent Test**: `just test` で 100 シードの生成テストが通ること。
 
-- [ ] T017 [P] [US1] `web/src/lib/game/generate.test.ts` に 100 シードのテストを書く: 全シードで `clearCondition.requiredClueIds` が `clues` の id 全体に含まれること（SC-003 / Constitution III）、探索者の `skills` が全 `SkillId` を 5〜80 で網羅すること、`items` が 1〜3 個であること、手がかりが 5〜7 個であること
-- [ ] T018 [US1] `web/src/lib/game/generate.ts` の中身を、固定シナリオを返す実装からランダム生成に差し替える。探索者（職業・技能・所持品・秘密）・怪異（異名・外見・正体・目的・弱点・出現条件）・クリア条件・手がかり 5〜7 個を生成し、生成直後に `clearCondition.requiredClueIds ⊆ clues の id 全体` を集合演算で検証し、失敗なら破棄して再生成（上限 50 回、超過で例外。research.md R-007）
-- [ ] T019 [US1] `web/src/app/api/new-game/route.ts` が生成 → 解ける保証 → 初期封緘を行い `{ sealed, visible }` を返すことを確認する。再試行上限超過時は `500 { "error": "generation_failed" }`（contracts/http-api.md）
+- [X] T017 [P] [US1] `web/src/lib/game/generate.test.ts` に 100 シードのテストを書く: 全シードで `clearCondition.requiredClueIds` が `clues` の id 全体に含まれること（SC-003 / Constitution III）、探索者の `skills` が全 `SkillId` を 5〜80 で網羅すること、`items` が 1〜3 個であること、手がかりが 5〜7 個であること
+- [X] T018 [US1] `web/src/lib/game/generate.ts` の中身を、固定シナリオを返す実装からランダム生成に差し替える。探索者（職業・技能・所持品・秘密）・怪異（異名・外見・正体・目的・弱点・出現条件）・クリア条件・手がかり 5〜7 個を生成し、生成直後に `clearCondition.requiredClueIds ⊆ clues の id 全体` を集合演算で検証し、失敗なら破棄して再生成（上限 50 回、超過で例外。research.md R-007）
+- [X] T019 [US1] `web/src/app/api/new-game/route.ts` が生成 → 解ける保証 → 初期封緘を行い `{ sealed, visible }` を返すことを確認する。再試行上限超過時は `500 { "error": "generation_failed" }`（contracts/http-api.md）
 
 **Checkpoint**: 毎回違うシナリオで 1 プレイを通しで遊べる。MVP としてデプロイ可能
 
