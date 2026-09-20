@@ -34,4 +34,4 @@
 - 入力元の `app-spec.md` に含まれていた技術スタック（Next.js / Zustand / Tailwind / Vitest / Vercel / `@typesafe-ai/sdk`）は実装詳細のため spec からは除外し、`/speckit-plan` 側で扱う。spec 内では「外部のAI判定サービス」「保存」といった技術非依存の表現に置き換えている。
 - Constitution v1.0.0 の原則 I（判定はコード、解釈だけが LLM）・III（生成物は解けることを保証する）は FR-008 / FR-010 / FR-004 として要件化済み。
 - 原則 II（1ターン1回の Jev 呼び出し）は実装レベルの制約のため spec には含めず、plan で担保する。
-- 最大ターン数12・成功率の式・しきい値は暫定値であることを Assumptions に明記済み。
+- 最大ターン数8・成功率の式・しきい値は暫定値であることを Assumptions に明記済み。

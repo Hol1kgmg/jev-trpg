@@ -1,17 +1,17 @@
 // 検証 → unseal → judge() を 1 回 → resolveTurn → checkEnding → 再封緘（contracts/http-api.md）。
-// プレイヤーの入力文字列は state.action に値として渡すだけで、instructions へ連結しない。
+// プレイヤーの入力文字列は state.action.detail に値として渡すだけで、instructions へ連結しない。
 
 import { turnRequest } from '@/lib/api/schema';
+import { narrateScene } from '@/lib/game/narrate';
 import { resolveTurn } from '@/lib/game/resolve';
-import type { GameState, JevState } from '@/lib/game/types';
+import type { Direction, GameState, JevState } from '@/lib/game/types';
 import { toVisible } from '@/lib/game/visible';
 import { judge } from '@/lib/jev/client';
 import { seal, unseal } from '@/lib/seal';
 
-function jevState(state: GameState, action: string): JevState {
-  const location = state.locations.find((l) => l.id === state.currentLocationId);
+function jevState(state: GameState, direction: Direction, detail: string): JevState {
   return {
-    location: location?.name ?? '',
+    scene: narrateScene(state, Math.random),
     investigator: {
       occupation: state.investigator.occupation,
       skills: state.investigator.skills,
@@ -20,8 +20,7 @@ function jevState(state: GameState, action: string): JevState {
       sanity: state.investigator.sanity,
     },
     acquiredClues: state.acquiredClueIds.map((id) => state.clues[id].text),
-    action,
-    clearConditionDescription: state.clearCondition.description,
+    action: { direction, detail },
   };
 }
 
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: 'invalid_action' }, { status: 400 });
   }
-  const { sealed, turn, action } = parsed.data;
+  const { sealed, turn, direction, detail } = parsed.data;
 
   const state = unseal(sealed);
   if (state === null) {
@@ -53,8 +52,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'turn_mismatch' }, { status: 409 });
   }
 
-  const judgment = await judge(jevState(state, action));
-  const result = resolveTurn(state, action, judgment, Math.random);
+  const judgment = await judge(jevState(state, direction, detail), state.clearCondition.description);
+  const result = resolveTurn(state, direction, detail, judgment, Math.random);
 
   return Response.json({
     sealed: seal(result.state),

@@ -1,7 +1,7 @@
 // 調整用の数値はすべてこの 1 ファイルに集約する（research.md R-006 / Constitution V）。
 // テストプレイでバランスを変えるときは、ここ以外を触らない。
 
-import type { ActionType, Outcome } from './types';
+import type { Direction, EntityStage, Outcome } from './types';
 
 /** plausibility（0〜4 に丸めた値）→ 成功率の補正 */
 export const plausibilityMod: Record<number, number> = {
@@ -23,14 +23,23 @@ export const fumbleFloor = 96;
 
 /** 確信度のしきい値（research.md R-002） */
 export const confidenceThresholds = {
-  /** action_type の confidence がこれ未満なら ambiguous（ロールしない） */
+  /** skill の confidence がこれ未満なら ambiguous（ロールしない） */
   ambiguous: 0.5,
   exploitsWeakness: 0.7,
   meetsClear: 0.7,
   metaCheat: 0.6,
 } as const;
 
-export const maxTurn = 12;
+export const maxTurn = 8;
+
+/** 怪異の段階の境界。turn から導出する（data-model.md EntityStage） */
+export const stageThresholds = { appearance: 3, agitation: 6 } as const;
+
+export function entityStage(turn: number): EntityStage {
+  if (turn <= stageThresholds.appearance) return 'appearance';
+  if (turn <= stageThresholds.agitation) return 'agitation';
+  return 'frenzy';
+}
 
 /** 生成の再試行上限（research.md R-007） */
 export const generationRetryLimit = 50;
@@ -54,22 +63,19 @@ export function sanityLoss(outcome: Outcome, horrorExposure: number): number {
   return Math.max(0, exposure + sanityLossByOutcome[outcome]);
 }
 
-/** 身体的な危険を伴う行動種別ほど HP を削る */
-const hpRiskByActionType: Record<ActionType, number> = {
-  investigate: 0,
-  combat: 2,
-  persuade: 0,
-  escape: 1,
-  ritual: 1,
-  hide: 0,
-  other: 0,
+/** 身体的な危険を伴う方向性ほど HP を削る */
+const hpRiskByDirection: Record<Direction, number> = {
+  observe: 0,
+  attack: 2,
+  engage: 1,
+  withdraw: 1,
 };
 
 /** HP の減少量。成功系では削らない */
-export function hpLoss(outcome: Outcome, actionType: ActionType): number {
+export function hpLoss(outcome: Outcome, direction: Direction): number {
   if (outcome === 'critical_success' || outcome === 'success') return 0;
   if (outcome === 'meta') return 0;
-  const risk = hpRiskByActionType[actionType];
+  const risk = hpRiskByDirection[direction];
   if (outcome === 'fumble') return risk + 1;
   if (outcome === 'ambiguous') return 0;
   return risk;

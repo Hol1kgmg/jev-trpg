@@ -1,24 +1,18 @@
-// 場所ごとの場面描写。プレースホルダーは {item} / {epithet} / {location} / {clue}。
+// 怪異の現在の様子。段階（EntityStage）ごとに持つ。プレースホルダーは {item} / {epithet} / {clue}。
 
-export const sceneTemplates: Record<string, string[]> = {
-  entrance: [
-    '{location}。硝子戸の内側に埃が均一に積もっていて、誰かが最近開けた形跡がない。それでも鍵は開いている。',
-    '{location}。玄関灯だけが点いている。電気は来ているのに、奥の廊下には一つも灯りがない。',
+import type { EntityStage } from '@/lib/game/types';
+
+export const sceneTemplates: Record<EntityStage, string[]> = {
+  appearance: [
+    '{epithet}は、まだ輪郭の半分を空気に預けている。動いてはいない。こちらを見ているかどうかも分からない。',
+    '空気が一段だけ冷たい。{epithet}の立つあたりだけ、埃が落ちていかない。',
   ],
-  archive: [
-    '{location}。天井まで届く棚に、日付順の綴りが並んでいる。並びは途中で一度だけ乱れている。',
-    '{location}。紙の匂いに混じって、雨の日の金属のような匂いがする。窓は閉まっている。',
+  agitation: [
+    '{epithet}の縁がはっきりしてきた。瞬きをするたび、さっきより近い位置にいる。',
+    '音が遅れて届く。{epithet}が動いた気配のあとに、動いた音が来る。',
   ],
-  dome: [
-    '{location}。半球の継ぎ目から細い空が見える。望遠鏡は、誰も操作していないのに空ではなく床を向いている。',
-    '{location}。床の目盛りが、観測に使うには細かすぎる刻みで円周に彫られている。',
-  ],
-  basement: [
-    '{location}。配電盤の表示灯が規則正しく明滅している。数えると、拍が呼吸に近い。',
-    '{location}。足元のケーブルが束ねられ、どれも同じ方向——上——へ伸びている。',
-  ],
-  garden: [
-    '{location}。植木はすべて枯れているのに、土だけが湿っている。',
-    '{location}。石畳の目地に、細く長い影が落ちている。影を落とすものが見当たらない。',
+  frenzy: [
+    '{epithet}はもう薄くない。輪郭の内側に、見てはいけない深さがある。',
+    '視界のどこを向いても{epithet}が端にいる。逃げる方向が、どちらも同じ方向に見える。',
   ],
 };

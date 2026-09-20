@@ -3,6 +3,8 @@
 **Branch**: `001-jev-cosmic-horror-trpg`
 
 エンドポイントは 2 本。どちらも `POST`、`Content-Type: application/json`。
+待機画面からセッションへの遷移はクライアント内の状態変化だけで完結するため、
+そのためのエンドポイントは置かない（data-model.md「セッション開始」）。
 秘密の開封鍵はサーバーにしかないため、生成もターン処理もサーバー側で行う（research.md R-008）。
 
 型の定義は [data-model.md](../data-model.md) を参照する。ここでは重複させない。
@@ -12,6 +14,7 @@
 ## `POST /api/new-game`
 
 新しいプレイを生成する。リクエストボディは不要（`{}`）。
+レスポンスはまず待機画面の描画に使われ、プレイヤーが開始を選ぶとそのままセッションに入る。
 
 **200 Response**
 
@@ -24,7 +27,9 @@
 
 - `sealed`: AES-256-GCM で封緘した `GameState`。クライアントは中身を解釈せず、
   そのまま localStorage に保存して次のリクエストで送り返す
-- `visible`: 描画に必要な平文の投影。秘密（クリア条件・怪異の正体・未入手の手がかり）を含まない
+- `visible`: 描画に必要な平文の投影。秘密（クリア条件・怪異の正体・目的・弱点・未入手の
+  手がかり）を含まない。待機画面で使うのは探索者の情報と `entityEpithet` /
+  `entityAppearance` だけだが、レスポンスの形は通常のターンと同じ（FR-027）
 
 **500 Response**: `{ "error": "generation_failed" }`
 生成の再試行が上限（50 回）に達した場合。通常は起きない（Constitution III のテストで担保）。
@@ -41,7 +46,8 @@
 {
   "sealed": "<opaque string>",
   "turn": 3,
-  "action": "机の引き出しを調べる"
+  "direction": "observe",
+  "detail": "首のあたりの傷跡を目で追う"
 }
 ```
 
@@ -49,7 +55,8 @@
 |---|---|
 | `sealed` | 開封でき、`version` が現行スキーマ版と一致すること |
 | `turn` | 開封した `GameState.turn` と一致すること（重複送信の防止） |
-| `action` | 1〜200 文字、空白のみでないこと |
+| `direction` | `observe` / `attack` / `engage` / `withdraw` のいずれかであること |
+| `detail` | 0〜200 文字。**空文字は正常系**で、方向性だけの汎用行動として処理する（FR-029） |
 
 **200 Response**
 
@@ -58,7 +65,7 @@
   "sealed": "<opaque string>",
   "visible": { "...": "VisibleState" },
   "outcome": "success",
-  "narration": "引き出しの底板が浮いている。その下に…",
+  "narration": "傷跡は古い。何かに縛られていた痕だ…",
   "delta": { "hp": 0, "sanity": -1, "clueId": "clue-03" },
   "degraded": false
 }
@@ -74,7 +81,7 @@
 
 | `error` | 条件 | クライアントの扱い |
 |---|---|---|
-| `invalid_action` | 入力が空・空白のみ・200 文字超 | ターンを消費せず、入力のやり直しを促す |
+| `invalid_action` | `direction` が 4 値以外、または `detail` が 200 文字超 | ターンを消費せず、入力のやり直しを促す |
 | `invalid_state` | 開封失敗、`version` 不一致、`turn` が範囲外 | セーブを破棄して新規プレイを提案する |
 
 **409 Response**: `{ "error": "turn_mismatch" }`
@@ -94,7 +101,6 @@ Jev の呼び出しが例外・タイムアウト（5 秒）・スキーマ不�
 
 ```ts
 {
-  actionType: 'other',
   skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
@@ -118,7 +124,7 @@ Jev の呼び出しが例外・タイムアウト（5 秒）・スキーマ不�
   自動注入されるため、Gateway 用のキーを設定する必要はない
 - Jev の呼び出しには `providerOptions: { gateway: { zeroDataRetention: true } }` を付け、
   プレイヤーの入力文字列が Gateway 側に保持されないようにする
-- プレイヤーの入力文字列は Jev の `state.action` に値として渡すだけで、
+- プレイヤーの入力文字列は Jev の `state.action.detail` に値として渡すだけで、
   `instructions` や `criteria` に連結してはならない（Constitution の指示注入対策）
 - `meta_cheat` が真でも、クリア条件・怪異の正体はレスポンスに含めない。
   メタ入力専用の描写テンプレートに分岐するだけ（FR-013 / SC-008）

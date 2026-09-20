@@ -40,7 +40,8 @@ export function unseal(sealed: string): GameState | null {
     ]).toString('utf8');
     const state = JSON.parse(json) as GameState;
     if (state?.version !== STATE_VERSION) return null;
-    if (!Number.isInteger(state.turn) || state.turn < 1 || state.turn > MAX_TURN) return null;
+    // 決着後の状態は turn が MAX_TURN + 1 になりうる（timeout の判定が turn > MAX_TURN のため）
+    if (!Number.isInteger(state.turn) || state.turn < 1 || state.turn > MAX_TURN + 1) return null;
     return state;
   } catch {
     return null;

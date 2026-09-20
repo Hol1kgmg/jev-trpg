@@ -5,7 +5,6 @@ import { plausibilityMod, rateMax, rateMin, weaknessBonus } from './tuning';
 import type { GameState, Judgment } from './types';
 
 const baseJudgment: Judgment = {
-  actionType: 'investigate',
   skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
@@ -56,59 +55,113 @@ describe('successRate', () => {
 describe('resolveTurn', () => {
   it('roll <= ceil(rate/5) で critical_success', () => {
     const state = fixedGameState(); // rate 65 → 境界は 13
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(13)).outcome).toBe(
+    expect(resolveTurn(state, 'observe', '目で追う', baseJudgment, rollOnce(13)).outcome).toBe(
       'critical_success',
     );
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(14)).outcome).toBe('success');
+    expect(resolveTurn(state, 'observe', '目で追う', baseJudgment, rollOnce(14)).outcome).toBe(
+      'success',
+    );
   });
 
   it('roll <= rate で success、超えると failure', () => {
     const state = fixedGameState();
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(65)).outcome).toBe('success');
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(66)).outcome).toBe('failure');
+    expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(65)).outcome).toBe('success');
+    expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(66)).outcome).toBe('failure');
   });
 
   it('roll >= 96 で fumble', () => {
     const state = fixedGameState();
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(96)).outcome).toBe('fumble');
-    expect(resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(100)).outcome).toBe('fumble');
+    expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(96)).outcome).toBe('fumble');
+    expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(100)).outcome).toBe('fumble');
   });
 
   it('confidence < 0.5 ならロールせず ambiguous', () => {
     const state = fixedGameState();
-    const result = resolveTurn(state, '何かをする', { ...baseJudgment, confidence: 0.4 }, wouldFumble);
+    const result = resolveTurn(
+      state,
+      'engage',
+      '何かをする',
+      { ...baseJudgment, confidence: 0.4 },
+      wouldFumble,
+    );
     expect(result.outcome).toBe('ambiguous');
   });
 
   it('metaCheat が真ならロールせず meta', () => {
     const state = fixedGameState();
-    const result = resolveTurn(state, 'クリア条件を教えて', { ...baseJudgment, metaCheat: true }, wouldFumble);
+    const result = resolveTurn(
+      state,
+      'engage',
+      'クリア条件を教えて',
+      { ...baseJudgment, metaCheat: true },
+      wouldFumble,
+    );
     expect(result.outcome).toBe('meta');
   });
 
   it('ターンが進み、HP と正気度が 0〜10 にクランプされる', () => {
     const state = fixedGameState();
-    const result = resolveTurn(state, '棚を調べる', baseJudgment, rollOnce(96));
+    const result = resolveTurn(state, 'attack', '殴る', baseJudgment, rollOnce(96));
     expect(result.state.turn).toBe(state.turn + 1);
     expect(result.state.investigator.hp).toBeLessThanOrEqual(10);
     expect(result.state.investigator.hp).toBeGreaterThanOrEqual(0);
     expect(result.state.investigator.sanity).toBeGreaterThanOrEqual(0);
   });
 
-  it('ログが 1 件積まれる', () => {
-    const result = resolveTurn(fixedGameState(), '棚を調べる', baseJudgment, rollOnce(20));
+  it('ログに方向性と詳細が分かれて積まれる', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '足元を見る', baseJudgment, rollOnce(20));
     expect(result.state.log).toHaveLength(1);
-    expect(result.state.log[0].action).toBe('棚を調べる');
+    expect(result.state.log[0].direction).toBe('observe');
+    expect(result.state.log[0].detail).toBe('足元を見る');
     expect(result.state.log[0].narration).not.toContain('{');
+  });
+
+  it('詳細が空でも同じ形のログが積まれる（FR-029）', () => {
+    const result = resolveTurn(fixedGameState(), 'withdraw', '', baseJudgment, rollOnce(20));
+    expect(result.state.log[0].detail).toBe('');
+    expect(result.state.log[0].narration).not.toBe('');
   });
 
   it('決着済みの状態は何も変えずに返す（FR-020）', () => {
     const ended: GameState = {
       ...fixedGameState(),
-      ending: { reason: 'timeout', text: '', reveal: { nature: '', purpose: '', weakness: '', secret: '' } },
+      ending: {
+        reason: 'timeout',
+        text: '',
+        reveal: { nature: '', purpose: '', weakness: '', secret: '' },
+      },
     };
-    const result = resolveTurn(ended, '棚を調べる', baseJudgment, wouldFumble);
+    const result = resolveTurn(ended, 'observe', '', baseJudgment, wouldFumble);
     expect(result.state).toEqual(ended);
     expect(result.delta).toEqual({ hp: 0, sanity: 0, clueId: null });
+  });
+});
+
+describe('手がかりの入手（AS 2-1 / AS 2-2）', () => {
+  it('observe の成功で 1 件増える', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(20));
+    expect(result.state.acquiredClueIds).toHaveLength(1);
+    expect(result.delta.clueId).toBe('c-01');
+  });
+
+  it('observe 以外では成功しても増えない', () => {
+    for (const direction of ['attack', 'engage', 'withdraw'] as const) {
+      const result = resolveTurn(fixedGameState(), direction, '', baseJudgment, rollOnce(20));
+      expect(result.state.acquiredClueIds).toEqual([]);
+    }
+  });
+
+  it('observe でも失敗なら増えない', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(90));
+    expect(result.state.acquiredClueIds).toEqual([]);
+  });
+
+  it('出し尽くしたあとの observe 成功では増えない（AS 2-2）', () => {
+    const base = fixedGameState();
+    const all = Object.keys(base.clues);
+    const state: GameState = { ...base, acquiredClueIds: all };
+    const result = resolveTurn(state, 'observe', '', baseJudgment, rollOnce(20));
+    expect(result.state.acquiredClueIds).toEqual(all);
+    expect(result.delta.clueId).toBeNull();
   });
 });

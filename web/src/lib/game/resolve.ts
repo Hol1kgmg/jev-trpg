@@ -4,6 +4,7 @@
 import { checkEnding, reveal } from './ending';
 import { narrateEnding, narrateOutcome, type Rng } from './narrate';
 import {
+  confidenceThresholds,
   fumbleFloor,
   hpLoss,
   plausibilityMod,
@@ -12,8 +13,7 @@ import {
   sanityLoss,
   weaknessBonus,
 } from './tuning';
-import { confidenceThresholds } from './tuning';
-import type { GameState, Judgment, LogEntry, Outcome } from './types';
+import type { Direction, GameState, Judgment, LogEntry, Outcome } from './types';
 
 export type TurnDelta = { hp: number; sanity: number; clueId: string | null };
 
@@ -49,7 +49,8 @@ function rollOutcome(state: GameState, judgment: Judgment, rng: Rng): Outcome {
 
 export function resolveTurn(
   state: GameState,
-  action: string,
+  direction: Direction,
+  detail: string,
   judgment: Judgment,
   rng: Rng,
 ): TurnResult {
@@ -71,44 +72,29 @@ export function resolveTurn(
 
   const succeeded = outcome === 'critical_success' || outcome === 'success';
 
-  // 手がかり入手。同じ場所の再調査では増えない（AS 2-2）
-  const alreadySearched = state.investigatedLocationIds.includes(state.currentLocationId);
-  const location = state.locations.find((l) => l.id === state.currentLocationId);
-  const acquiredClueId =
-    succeeded && judgment.actionType === 'investigate' && !alreadySearched
-      ? (location?.clueIds.find((id) => !state.acquiredClueIds.includes(id)) ?? null)
-      : null;
+  // 手がかりは観察の成功でのみ増える。出し尽くしたあとは増えない（AS 2-2）
+  const nextClueId =
+    Object.keys(state.clues).find((id) => !state.acquiredClueIds.includes(id)) ?? null;
+  const observedWell = succeeded && direction === 'observe';
+  const acquiredClueId = observedWell ? nextClueId : null;
 
-  const hpDelta = -hpLoss(outcome, judgment.actionType);
+  const hpDelta = -hpLoss(outcome, direction);
   const sanityDelta = -sanityLoss(outcome, judgment.horrorExposure);
   const hp = clamp(state.investigator.hp + hpDelta, 0, 10);
   const sanity = clamp(state.investigator.sanity + sanityDelta, 0, 10);
 
-  const narration = narrateOutcome(state, judgment.actionType, outcome, rng, {
+  const narration = narrateOutcome(state, direction, outcome, rng, {
     clueText: acquiredClueId ? state.clues[acquiredClueId].text : undefined,
-    exhausted: judgment.actionType === 'investigate' && succeeded && alreadySearched,
+    exhausted: observedWell && nextClueId === null,
   });
-
-  // escape に成功すると隣の場所へ移る。
-  // ponytail: 場所は環状に並べるだけで、接続グラフは持たない。行き先を選ばせたくなったら入れる。
-  const index = state.locations.findIndex((l) => l.id === state.currentLocationId);
-  const moved =
-    succeeded && judgment.actionType === 'escape'
-      ? state.locations[(index + 1) % state.locations.length].id
-      : state.currentLocationId;
 
   let next: GameState = {
     ...state,
-    currentLocationId: moved,
     investigator: { ...state.investigator, hp, sanity },
     turn: state.turn + 1,
     acquiredClueIds: acquiredClueId
       ? [...state.acquiredClueIds, acquiredClueId]
       : state.acquiredClueIds,
-    investigatedLocationIds:
-      judgment.actionType === 'investigate' && succeeded && !alreadySearched
-        ? [...state.investigatedLocationIds, state.currentLocationId]
-        : state.investigatedLocationIds,
   };
 
   const reason = checkEnding(next, judgment, outcome);
@@ -121,10 +107,15 @@ export function resolveTurn(
 
   const entry: LogEntry = {
     turn: state.turn,
-    action,
+    direction,
+    detail,
     outcome,
     narration,
-    delta: { hp: hp - state.investigator.hp, sanity: sanity - state.investigator.sanity, clueId: acquiredClueId },
+    delta: {
+      hp: hp - state.investigator.hp,
+      sanity: sanity - state.investigator.sanity,
+      clueId: acquiredClueId,
+    },
   };
   next = { ...next, log: [...state.log, entry] };
 

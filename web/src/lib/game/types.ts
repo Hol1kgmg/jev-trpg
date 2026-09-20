@@ -11,24 +11,13 @@ export const SKILL_IDS: readonly SkillId[] = [
   'stealth',
 ] as const;
 
-export type ActionType =
-  | 'investigate'
-  | 'combat'
-  | 'persuade'
-  | 'escape'
-  | 'ritual'
-  | 'hide'
-  | 'other';
+/** プレイヤーが毎ターン 4 択から選ぶ行動の方向性（FR-006 / FR-030） */
+export const DIRECTIONS = ['observe', 'attack', 'engage', 'withdraw'] as const;
 
-export const ACTION_TYPES: readonly ActionType[] = [
-  'investigate',
-  'combat',
-  'persuade',
-  'escape',
-  'ritual',
-  'hide',
-  'other',
-] as const;
+export type Direction = (typeof DIRECTIONS)[number];
+
+/** 描写テンプレートのキーになる段階。turn から導出し、GameState には保存しない */
+export type EntityStage = 'appearance' | 'agitation' | 'frenzy';
 
 export type Outcome =
   | 'critical_success'
@@ -37,8 +26,6 @@ export type Outcome =
   | 'fumble'
   | 'ambiguous' // confidence < 0.5、またはフォールバック
   | 'meta'; // meta_cheat。ゲーム内の出来事として処理する
-
-export type LocationId = string;
 
 /** `skills` は各技能 5〜80 で全 SkillId を網羅、`items` は 1〜3 個、`hp`/`sanity` は初期 10・範囲 0〜10 */
 export type Investigator = {
@@ -57,9 +44,10 @@ export type Weakness = {
   requiredClueIds: string[];
 };
 
-/** epithet のみ可視。それ以外は秘密 */
+/** epithet と appearance のみ可視。それ以外は秘密 */
 export type Entity = {
   epithet: string;
+  appearance: string;
   nature: string;
   purpose: string;
   weakness: Weakness;
@@ -72,7 +60,6 @@ export type ClearCondition = {
   description: string;
   /** 1〜3 個 */
   requiredClueIds: string[];
-  locationId: LocationId | null;
 };
 
 export type Clue = {
@@ -81,18 +68,11 @@ export type Clue = {
   hints: ('nature' | 'purpose' | 'weakness')[];
 };
 
-export type Location = {
-  id: LocationId;
-  name: string;
-  sceneKey: string;
-  /** 配置された手がかり。秘密 */
-  clueIds: string[];
-};
-
 export type LogEntry = {
   turn: number;
-  /** プレイヤーの入力（そのまま） */
-  action: string;
+  direction: Direction;
+  /** 添えられた詳細（空文字もありうる） */
+  detail: string;
   outcome: Outcome;
   /** テンプレート展開済み */
   narration: string;
@@ -105,22 +85,18 @@ export type Ending = {
   reveal: { nature: string; purpose: string; weakness: string; secret: string };
 };
 
-export const MAX_TURN = 12;
+export const MAX_TURN = 8;
 
-/** 封緘される全体状態。turn は 1〜12 */
+/** 封緘される全体状態。turn は 1〜8 */
 export type GameState = {
   /** スキーマ版。不一致なら開封を失敗扱いにする */
   version: number;
   investigator: Investigator;
   entity: Entity;
   clearCondition: ClearCondition;
-  locations: Location[];
   clues: Record<string, Clue>;
-  currentLocationId: LocationId;
   turn: number;
   acquiredClueIds: string[];
-  /** 再調査での重複入手を防ぐ */
-  investigatedLocationIds: LocationId[];
   log: LogEntry[];
   ending: Ending | null;
 };
@@ -134,10 +110,10 @@ export type VisibleState = {
   sanity: number;
   turn: number;
   maxTurn: typeof MAX_TURN;
-  locationName: string;
-  /** 場面描写（テンプレート展開済み） */
+  /** 怪異の現在の様子（テンプレート展開済み） */
   scene: string;
   entityEpithet: string;
+  entityAppearance: string;
   acquiredClues: { id: string; text: string }[];
   log: LogEntry[];
   ending: Ending | null;
@@ -145,7 +121,6 @@ export type VisibleState = {
 
 /** Jev の生応答をコード側で正規化した値。これ自体はゲーム状態を変えない（Constitution I） */
 export type Judgment = {
-  actionType: ActionType;
   skill: SkillId;
   /** score 0..4（小数。使用時に丸める） */
   plausibility: number;
@@ -154,14 +129,14 @@ export type Judgment = {
   exploitsWeakness: boolean;
   meetsClear: boolean;
   metaCheat: boolean;
-  /** action_type の confidence 0..1（欠損時は 0） */
+  /** skill の confidence 0..1（欠損時は 0） */
   confidence: number;
   source: 'jev' | 'fallback';
 };
 
 /** Jev に渡す最小限の情報（contracts/jev-questions.md） */
 export type JevState = {
-  location: string;
+  scene: string;
   investigator: {
     occupation: string;
     skills: Record<SkillId, number>;
@@ -170,8 +145,9 @@ export type JevState = {
     sanity: number;
   };
   acquiredClues: string[];
-  /** プレイヤーの入力（そのまま。連結・加工しない） */
-  action: string;
-  /** meets_clear の instructions に埋め込む。レスポンスとして外へ出してはならない */
-  clearConditionDescription: string;
+  action: {
+    direction: Direction;
+    /** プレイヤーの入力（そのまま。連結・加工しない。空文字もありうる） */
+    detail: string;
+  };
 };

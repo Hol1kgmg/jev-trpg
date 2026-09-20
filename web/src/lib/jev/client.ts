@@ -5,7 +5,6 @@ import { judgeStub } from './stub';
 
 /** 呼び出し失敗時の Judgment。confidence 0 により必ず ambiguous に落ちる（contracts/http-api.md） */
 export const fallbackJudgment: Judgment = {
-  actionType: 'other',
   skill: 'investigate',
   plausibility: 2,
   horrorExposure: 1,
@@ -16,11 +15,17 @@ export const fallbackJudgment: Judgment = {
   source: 'fallback',
 };
 
-/** 1 ターンにつき 1 回だけ呼ぶ（Constitution II）。失敗しても再試行せずフォールバックで完結させる */
-export async function judge(state: JevState): Promise<Judgment> {
+/**
+ * 1 ターンにつき 1 回だけ呼ぶ（Constitution II）。失敗しても再試行せずフォールバックで完結させる。
+ * clearConditionDescription は meets_clear の instructions にだけ使い、state には載せない（FR-003）。
+ */
+export async function judge(
+  state: JevState,
+  _clearConditionDescription: string,
+): Promise<Judgment> {
   if (process.env.JEV_STUB === '1') return judgeStub(state);
 
-  // M1（T023）で experimental_evaluate による実接続を入れる。
+  // M1（T014）で experimental_evaluate による実接続を入れる。
   // それまでは安全側のフォールバックに落とし、ターンは必ず完結させる。
   return fallbackJudgment;
 }

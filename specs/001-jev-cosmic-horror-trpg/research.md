@@ -58,7 +58,7 @@ Vercel のアカウントと請求だけで Jev に到達でき、本番では�
 **リスクと対処**: `experimental_evaluate` は名前のとおり実験的 API で、`ai` のマイナー更新で
 破壊的変更が入りうる。Constitution の技術制約に従い `ai` はマイナー版まで固定し、
 更新は R-005 の評価スクリプトを流して動作確認してから行う。呼び出しは
-`src/lib/jev/client.ts` の `judge()` 1 箇所に閉じているので、破壊的変更の影響範囲は
+`web/src/lib/jev/client.ts` の `judge()` 1 箇所に閉じているので、破壊的変更の影響範囲は
 このファイルに限られる。
 
 ---
@@ -66,7 +66,7 @@ Vercel のアカウントと請求だけで Jev に到達でき、本番では�
 ## R-002: 確信度（confidence）の取得と「手応えがない」へのマッピング
 
 **Decision**: `providerMetadata.typesafe.confidence`（質問名 → 0〜1 の `Record`）から
-`action_type` の値を取る。これが **0.5 未満**なら、成否判定を行わず結果段階
+`skill` の値を取る（行動種別はプレイヤーが 4 択で宣言するため Jev には訊かない。FR-030）。これが **0.5 未満**なら、成否判定を行わず結果段階
 `ambiguous`（手応えがない）に固定する。`boolean` 型の質問には confidence が付かないため、
 真偽の不確かさは `probability` そのもので扱い、`exploits_weakness` / `meets_clear` は
 **0.7 以上**を真、`meta_cheat` は **0.6 以上**を真とする（誤検出より取りこぼしを嫌う側に倒す）。
@@ -78,7 +78,7 @@ Vercel のアカウントと請求だけで Jev に到達でき、本番では�
 const confidence = result.providerMetadata?.typesafe?.confidence as
   | Record<string, number>
   | undefined;
-const actionTypeConfidence = confidence?.action_type ?? 0;
+const skillConfidence = confidence?.skill ?? 0;
 ```
 
 **Rationale**: Constitution II が「確信度の低い判定は失敗扱いにせず曖昧な結果にマップ」を
@@ -123,7 +123,7 @@ localStorage に保存する。封緘・開封は Node 標準 `node:crypto` の�
 
 ## R-004: LLM なしのテスト戦略
 
-**Decision**: `src/lib/jev/client.ts` に `judge(state): Promise<Judgment>` という 1 関数の
+**Decision**: `web/src/lib/jev/client.ts` に `judge(state): Promise<Judgment>` という 1 関数の
 境界を置き、テストでは Vitest の `vi.mock` でこのモジュールごと差し替える。
 ゲームロジック（生成・成功率算出・状態更新・終了判定）は `Judgment` の値を引数に取る
 純関数として実装し、ネットワークに触れない。
@@ -145,8 +145,8 @@ localStorage に保存する。封緘・開封は Node 標準 `node:crypto` の�
 
 ## R-005: Jev の日本語精度検証（app-spec.md 開発ステップ 1）
 
-**Decision**: `src/lib/jev/__eval__/cases.ja.json` に日本語の行動入力 30 件と期待値
-（`action_type` / `skill`）を置き、`just eval-jev` で実 API を叩いて一致率を出す。
+**Decision**: `web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と
+期待値（`skill` / `plausibility`）を置き、`just eval-jev` で実 API を叩いて一致率を出す。
 このスクリプトは Vitest のテストスイートには含めず、CI からも除外する。
 
 **Rationale**: Constitution IV が「Jev の判定精度の検証はゲームロジックのテストと分離」を
@@ -176,7 +176,7 @@ roll = d100(rng)
   それ以外               → failure
 ```
 
-例外経路: `action_type` の confidence < 0.5 → `ambiguous`（ロールなし）。
+例外経路: `skill` の confidence < 0.5 → `ambiguous`（ロールなし）。
 `meta_cheat` が真 → ロールなしで `failure` 相当、かつ専用のメタ描写テンプレートを使う。
 
 **Rationale**: Constitution I が「成功率の計算と d100 のロールはコード側の純粋ロジック」を
@@ -187,18 +187,18 @@ roll = d100(rng)
 - Jev の `probabilities` をそのまま成功率にする: Constitution I が明確に禁じている。
 - 乗算・非線形なカーブ: 調整時に因果が追えなくなる。暫定値の段階では加算で足りる。
 
-**ponytail**: 数値はすべて `src/lib/game/tuning.ts` の 1 ファイルに集約する。テストプレイの
+**ponytail**: 数値はすべて `web/src/lib/game/tuning.ts` の 1 ファイルに集約する。テストプレイの
 調整はこのファイルだけを触る。
 
 ---
 
 ## R-007: 「解ける保証」の検証方法
 
-**Decision**: 生成直後に、クリア条件が要求する手がかり ID の集合が、マップ上のいずれかの
-場所の `clues` に**すべて含まれること**を集合演算で検証する。満たさなければ破棄して再生成
+**Decision**: 生成直後に、クリア条件が要求する手がかり ID の集合が、生成された `clues` の
+ID 全体に**すべて含まれること**を集合演算で検証する。満たさなければ破棄して再生成
 （上限 50 回、超過したら例外）。テストでは 100 シードを回して全件成功を確認する（SC-003）。
 
-**Rationale**: Constitution III。マップは場所 4〜5 箇所・手がかり 5〜7 個という規模なので、
+**Rationale**: Constitution III。手がかりはすべて観察行動で入手可能で場所に紐付かないため、
 到達可能性のグラフ探索は不要で、集合の包含判定で十分。
 
 **Alternatives considered**:
@@ -261,7 +261,7 @@ SPLL の申請も発生しない。それでも制約を spec に書くのは、
 - **ルールも既存作品に準拠する**: ガイドラインの明示的な禁止行為に最も近く、
   事前照会なしには選べない。Constitution I（判定はコード）とも噛み合わない。
 
-**素材マニフェストの形**: `src/data/assets.ts` に `AssetEntry[]` を 1 配列で持ち、
+**素材マニフェストの形**: `web/src/data/assets.ts` に `AssetEntry[]` を 1 配列で持ち、
 画像の参照はこの配列のエントリ経由に限定する。テストで「`public/` 配下の画像ファイル集合 ==
 マニフェストのパス集合」を突き合わせる（SC-010）。クレジット画面は
 マニフェストから `requiresCredit: true` のエントリを描画する（FR-025 / SC-011）。

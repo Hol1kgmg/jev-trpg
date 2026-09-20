@@ -1,17 +1,16 @@
 // リクエスト境界の検証（contracts/http-api.md）。
 
 import { z } from 'zod';
+import { DIRECTIONS } from '@/lib/game/types';
 
 export const newGameRequest = z.object({}).loose();
 
 export const turnRequest = z.object({
   sealed: z.string().min(1),
   turn: z.number().int(),
-  action: z
-    .string()
-    .min(1)
-    .max(200)
-    .refine((s) => s.trim().length > 0, { message: 'action must not be blank' }),
+  direction: z.enum(DIRECTIONS),
+  /** 空文字は正常系（FR-029） */
+  detail: z.string().max(200),
 });
 
 export type TurnRequest = z.infer<typeof turnRequest>;

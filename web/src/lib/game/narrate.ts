@@ -5,16 +5,16 @@ import { clueIntroTemplates, exhaustedTemplates } from '@/data/templates/clues';
 import { endingTemplates } from '@/data/templates/endings';
 import { hallucinationTemplates } from '@/data/templates/hallucinations';
 import { metaTemplates } from '@/data/templates/meta';
-import { ambiguousTemplates, byActionType, bySceneKey } from '@/data/templates/outcomes';
+import { ambiguousTemplates, byDirection, byStage } from '@/data/templates/outcomes';
 import { sceneTemplates } from '@/data/templates/scenes';
-import type { ActionType, Ending, GameState, Outcome } from './types';
+import { entityStage } from './tuning';
+import type { Direction, Ending, EntityStage, GameState, Outcome } from './types';
 
 export type Rng = () => number;
 
 export type Vars = {
   item?: string;
   epithet?: string;
-  location?: string;
   clue?: string;
 };
 
@@ -22,49 +22,44 @@ export function pick<T>(items: readonly T[], rng: Rng): T {
   return items[Math.floor(rng() * items.length) % items.length];
 }
 
-/** {item} / {epithet} / {location} / {clue} を差し込む。未指定のキーは空文字に落とす */
+/** {item} / {epithet} / {clue} を差し込む。未指定のキーは空文字に落とす */
 export function fill(template: string, vars: Vars): string {
-  return template.replace(/\{(item|epithet|location|clue)\}/g, (_, key: keyof Vars) => vars[key] ?? '');
+  return template.replace(/\{(item|epithet|clue)\}/g, (_, key: keyof Vars) => vars[key] ?? '');
 }
 
 function varsFor(state: GameState, rng: Rng, clue?: string): Vars {
-  const location = state.locations.find((l) => l.id === state.currentLocationId);
   return {
     item: pick(state.investigator.items, rng),
     epithet: state.entity.epithet,
-    location: location?.name ?? '',
     clue,
   };
 }
 
-/** 現在地の場面描写 */
+/** 怪異の現在の様子 */
 export function narrateScene(state: GameState, rng: Rng): string {
-  const location = state.locations.find((l) => l.id === state.currentLocationId);
-  const templates = sceneTemplates[location?.sceneKey ?? ''] ?? ['あたりは静まり返っている。'];
-  return fill(pick(templates, rng), varsFor(state, rng));
+  return fill(pick(sceneTemplates[entityStage(state.turn)], rng), varsFor(state, rng));
 }
 
-function outcomeTemplatesFor(sceneKey: string, actionType: ActionType, outcome: Outcome): string[] {
-  const scoped = bySceneKey[sceneKey]?.[actionType]?.[outcome];
+function outcomeTemplatesFor(stage: EntityStage, direction: Direction, outcome: Outcome): string[] {
+  const scoped = byStage[stage]?.[direction]?.[outcome];
   if (scoped?.length) return scoped;
-  const generic = byActionType[actionType]?.[outcome];
+  const generic = byDirection[direction]?.[outcome];
   if (generic?.length) return generic;
-  return byActionType.other?.[outcome] ?? ['何かが起きた。'];
+  return byDirection.observe?.[outcome] ?? ['何かが起きた。'];
 }
 
 /**
  * 結果描写。clueText を渡すと手がかりの本文を差し込む。
- * exhausted が真なら「調べ尽くした」系に分岐する（AS 2-2）。
+ * exhausted が真なら「これ以上は読み取れない」系に分岐する（AS 2-2）。
  * 正気度が低いターンは幻覚描写を 1 文混ぜる。
  */
 export function narrateOutcome(
   state: GameState,
-  actionType: ActionType,
+  direction: Direction,
   outcome: Outcome,
   rng: Rng,
   options: { clueText?: string; exhausted?: boolean } = {},
 ): string {
-  const location = state.locations.find((l) => l.id === state.currentLocationId);
   const vars = varsFor(state, rng, options.clueText);
 
   let base: string;
@@ -75,7 +70,7 @@ export function narrateOutcome(
   } else if (options.exhausted) {
     base = fill(pick(exhaustedTemplates, rng), vars);
   } else {
-    base = fill(pick(outcomeTemplatesFor(location?.sceneKey ?? '', actionType, outcome), rng), vars);
+    base = fill(pick(outcomeTemplatesFor(entityStage(state.turn), direction, outcome), rng), vars);
     if (options.clueText && !base.includes(options.clueText)) {
       base = `${base} ${fill(pick(clueIntroTemplates, rng), vars)} ${options.clueText}`;
     }

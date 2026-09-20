@@ -14,10 +14,7 @@ export function checkEnding(
 ): Ending['reason'] | null {
   const acquired = new Set(state.acquiredClueIds);
   const cluesMet = state.clearCondition.requiredClueIds.every((id) => acquired.has(id));
-  const placeMet =
-    state.clearCondition.locationId === null ||
-    state.clearCondition.locationId === state.currentLocationId;
-  if (judgment.meetsClear && cluesMet && placeMet && successOutcomes.includes(outcome)) {
+  if (judgment.meetsClear && cluesMet && successOutcomes.includes(outcome)) {
     return 'clear';
   }
   if (state.investigator.hp <= 0) return 'death';

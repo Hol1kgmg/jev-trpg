@@ -2,7 +2,7 @@
 
 **Branch**: `001-jev-cosmic-horror-trpg`
 
-`src/lib/jev/questions.ts` に定義し、`src/lib/jev/client.ts` の `judge()` から
+`web/src/lib/jev/questions.ts` に定義し、`web/src/lib/jev/client.ts` の `judge()` から
 `experimental_evaluate({ model: 'typesafe-ai/jev', state, questions })` に
 1 回だけ渡す（Constitution II）。
 
@@ -16,7 +16,7 @@
 
 ```ts
 {
-  location: string;           // 現在地の名前と場面の要約
+  scene: string;              // 怪異の現在の様子の要約
   investigator: {
     occupation: string;
     skills: Record<SkillId, number>;
@@ -25,12 +25,15 @@
     sanity: number;
   };
   acquiredClues: string[];    // 入手済み手がかりの本文
-  action: string;             // プレイヤーの入力（そのまま。連結・加工しない）
+  action: {
+    direction: Direction;     // プレイヤーが選んだ方向性（observe / attack / engage / withdraw）
+    detail: string;           // 添えられた詳細（そのまま。連結・加工しない。空文字もありうる）
+  };
 }
 ```
 
 **渡さないもの**: クリア条件の全文以外の秘密（怪異の正体・目的・出現条件、未入手の
-手がかり、他の場所の手がかり配置、探索者の秘密、ログ全文）。
+手がかり、探索者の秘密、ログ全文）。
 `meets_clear` の判定に必要な範囲だけは `instructions` に埋め込む（下記）。
 
 ---
@@ -39,7 +42,6 @@
 
 | 名前 | 型 | 返る値 | 用途 |
 |---|---|---|---|
-| `action_type` | `choice` | 7 択 | 描写テンプレートのキー、HP 減少の分岐 |
 | `skill` | `choice` | 6 択 | 成功率の基礎値 |
 | `plausibility` | `score` | 0〜4（小数） | 成功率の補正 |
 | `horror_exposure` | `score` | 0〜3（小数） | 正気度の減少量 |
@@ -52,20 +54,6 @@ confidence は個々の回答ではなく `providerMetadata.typesafe.confidence`
 
 ```ts
 export const questions = (clearCondition: string) => ({
-  action_type: {
-    type: 'choice',
-    instructions: 'プレイヤーの行動はどの種別か',
-    criteria: {
-      investigate: '周囲や物を調べる、観察する、探す',
-      combat: '攻撃する、殴る、撃つ、破壊する',
-      persuade: '話しかける、説得する、交渉する、問いかける',
-      escape: 'その場から逃げる、離れる、別の場所へ移動する',
-      ritual: '呪文、儀式、祈り、象徴的な手順を実行する',
-      hide: '隠れる、身を潜める、気配を消す',
-      other: '上記のいずれにも当てはまらない',
-    },
-  },
-
   skill: {
     type: 'choice',
     instructions: 'この行動の成否に最も関わる技能はどれか',
@@ -132,7 +120,7 @@ export const questions = (clearCondition: string) => ({
 ```
 
 `score` の `criteria` は 2〜10 レベル、`choice` の `criteria` は最大 255 選択肢という
-上限がある。本設計は 5 レベル / 7 選択肢が最大で、どちらも余裕がある。
+上限がある。本設計は 5 レベル / 6 選択肢が最大で、どちらも余裕がある。
 
 `clearCondition` は `meets_clear` の `instructions` に埋め込むが、
 **レスポンスとして外へ出してはならない**（FR-003）。
@@ -143,20 +131,19 @@ export const questions = (clearCondition: string) => ({
 
 | 生の応答 | `Judgment` のフィールド | 変換 |
 |---|---|---|
-| `answers.action_type.choice` | `actionType` | そのまま |
 | `answers.skill.choice` | `skill` | そのまま |
 | `answers.plausibility.score` | `plausibility` | 0〜4 にクランプ |
 | `answers.horror_exposure.score` | `horrorExposure` | 0〜3 にクランプ |
 | `answers.exploits_weakness.probability` | `exploitsWeakness` | `>= 0.7` |
 | `answers.meets_clear.probability` | `meetsClear` | `>= 0.7` |
 | `answers.meta_cheat.probability` | `metaCheat` | `>= 0.6` |
-| `providerMetadata.typesafe.confidence.action_type` | `confidence` | そのまま。欠損時は `0` |
+| `providerMetadata.typesafe.confidence.skill` | `confidence` | そのまま。欠損時は `0` |
 
 `providerMetadata` は型上 optional なので、`?? 0` で受ける。欠損すると必ず
 `ambiguous` に落ちるため、安全側に倒れる。
 
 しきい値（`0.7` / `0.7` / `0.6` / `ambiguous` の `0.5`）は暫定値で、
-`src/lib/game/tuning.ts` に集約する。根拠と調整方針は research.md R-002 / R-006。
+`web/src/lib/game/tuning.ts` に集約する。根拠と調整方針は research.md R-002 / R-006。
 
 期待する形に一致しない応答（欠損フィールド、未知の選択肢キー）は例外にせず、
 フォールバックの `Judgment` に落とす（[http-api.md](./http-api.md) のフォールバック節）。
@@ -165,6 +152,7 @@ export const questions = (clearCondition: string) => ({
 
 ## 精度検証（ゲームロジックのテストとは分離 / Constitution IV）
 
-`src/lib/jev/__eval__/cases.ja.json` に日本語入力 30 件と期待する
-`action_type` / `skill` を置き、`just eval-jev` で実 API を叩いて一致率を出す。
+`web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と期待する
+`skill` / `plausibility` を置き、`just eval-jev` で実 API を叩いて一致率を出す。
+行動種別はプレイヤーの選択で確定するので検証対象に含めない（SC-005）。
 Vitest のスイートには含めず、CI からも除外する。目標は SC-005 の 80% 以上。
