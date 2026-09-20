@@ -1,0 +1,185 @@
+[
+  {
+    "direction": "observe",
+    "detail": "像の縁を端から順に目で追い、どこで輪郭が切れているか確かめる",
+    "skill": "investigate",
+    "plausibility": 3
+  },
+  {
+    "direction": "observe",
+    "detail": "床に彫られた目盛りの刻みを数え、間隔が一定かどうか調べる",
+    "skill": "investigate",
+    "plausibility": 3
+  },
+  {
+    "direction": "observe",
+    "detail": "携帯用の照度計を向けて、像のあたりの明るさを測る",
+    "skill": "investigate",
+    "plausibility": 4
+  },
+  {
+    "direction": "observe",
+    "detail": "観測日誌を遡って、同じ筆跡の記述がどこから始まっているか読む",
+    "skill": "investigate",
+    "plausibility": 4
+  },
+  {
+    "direction": "observe",
+    "detail": "気配を殺したまま物陰から様子をうかがう",
+    "skill": "stealth",
+    "plausibility": 3
+  },
+  {
+    "direction": "observe",
+    "detail": "",
+    "skill": "investigate",
+    "plausibility": 2
+  },
+  {
+    "direction": "observe",
+    "detail": "目を閉じて、聞こえてくる音の遅れを数える",
+    "skill": "investigate",
+    "plausibility": 3
+  },
+  {
+    "direction": "observe",
+    "detail": "壁を殴って音の反響を確かめる",
+    "skill": "combat",
+    "plausibility": 1
+  },
+
+  {
+    "direction": "attack",
+    "detail": "前任者の鍵束を握り込んで、像の中心を殴りつける",
+    "skill": "combat",
+    "plausibility": 2
+  },
+  {
+    "direction": "attack",
+    "detail": "懐中電灯の光を最大にして、像の正面から浴びせる",
+    "skill": "combat",
+    "plausibility": 3
+  },
+  {
+    "direction": "attack",
+    "detail": "接眼部の架台を蹴り倒して、像の立つ位置ごと崩す",
+    "skill": "combat",
+    "plausibility": 3
+  },
+  {
+    "direction": "attack",
+    "detail": "",
+    "skill": "combat",
+    "plausibility": 2
+  },
+  {
+    "direction": "attack",
+    "detail": "素手で像の輪郭をつかみ、引き剥がそうとする",
+    "skill": "combat",
+    "plausibility": 1
+  },
+  {
+    "direction": "attack",
+    "detail": "覚えている限りの祓いの文句を唱えながら踏み込む",
+    "skill": "occult",
+    "plausibility": 2
+  },
+  {
+    "direction": "attack",
+    "detail": "持っていない猟銃で撃つ",
+    "skill": "combat",
+    "plausibility": 0
+  },
+  {
+    "direction": "attack",
+    "detail": "配電盤の主灯を落とし、暗闇のまま突っ込む",
+    "skill": "combat",
+    "plausibility": 3
+  },
+
+  {
+    "direction": "engage",
+    "detail": "名前を呼びかけ、何を待っているのか尋ねる",
+    "skill": "persuade",
+    "plausibility": 3
+  },
+  {
+    "direction": "engage",
+    "detail": "観測を続けると約束して、代わりに離れるよう交渉する",
+    "skill": "persuade",
+    "plausibility": 4
+  },
+  {
+    "direction": "engage",
+    "detail": "",
+    "skill": "persuade",
+    "plausibility": 2
+  },
+  {
+    "direction": "engage",
+    "detail": "床の目盛りに沿って手順どおりの儀礼を行う",
+    "skill": "occult",
+    "plausibility": 3
+  },
+  {
+    "direction": "engage",
+    "detail": "日誌に書かれていた文言をそのまま読み上げる",
+    "skill": "occult",
+    "plausibility": 3
+  },
+  {
+    "direction": "engage",
+    "detail": "兄の名前を出して、返事があるか確かめる",
+    "skill": "persuade",
+    "plausibility": 3
+  },
+  {
+    "direction": "engage",
+    "detail": "握手を求めて手を差し出す",
+    "skill": "persuade",
+    "plausibility": 1
+  },
+  {
+    "direction": "engage",
+    "detail": "大声で罵倒して挑発する",
+    "skill": "persuade",
+    "plausibility": 1
+  },
+
+  {
+    "direction": "withdraw",
+    "detail": "視線を外さないまま、出口まで後ずさる",
+    "skill": "escape",
+    "plausibility": 3
+  },
+  {
+    "direction": "withdraw",
+    "detail": "",
+    "skill": "escape",
+    "plausibility": 2
+  },
+  {
+    "direction": "withdraw",
+    "detail": "息を殺して計器の陰に身を寄せ、通り過ぎるのを待つ",
+    "skill": "stealth",
+    "plausibility": 4
+  },
+  {
+    "direction": "withdraw",
+    "detail": "懐中電灯を消して、暗がりを伝って階段まで戻る",
+    "skill": "stealth",
+    "plausibility": 3
+  },
+  {
+    "direction": "withdraw",
+    "detail": "全力で走って観測所の外へ出る",
+    "skill": "escape",
+    "plausibility": 3
+  },
+  {
+    "direction": "withdraw",
+    "detail": "窓を割って飛び降りる",
+    "skill": "escape",
+    "plausibility": 1
+  }
+]

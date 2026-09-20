@@ -3,6 +3,7 @@
 :root {
   --background: #0b0b0d;
   --foreground: #d8d3c8;
+  color-scheme: dark;
 }
 
 body {
@@ -10,4 +11,22 @@ body {
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
   line-height: 1.8;
+  /* スマートフォン縦画面でも横スクロールを出さない */
+  overflow-x: hidden;
+  /* ノッチ端末の左右の切り欠きを避ける */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* 日本語の禁則と折り返し。行内の長い手がかり文が画面から溢れないようにする */
+p,
+li {
+  overflow-wrap: anywhere;
+  line-break: strict;
+}
+
+/* 指で押せる大きさを確保する */
+button,
+a {
+  touch-action: manipulation;
 }

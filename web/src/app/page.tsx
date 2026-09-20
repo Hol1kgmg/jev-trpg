@@ -173,7 +173,7 @@ export default function Page() {
                   <button
                     key={d}
                     type="button"
-                    className="border border-neutral-700 px-3 py-2 text-xs"
+                    className="min-h-11 border border-neutral-700 px-3 py-2 text-xs"
                     disabled={sending}
                     onClick={() => setDirection(d)}
                   >
@@ -196,7 +196,8 @@ export default function Page() {
               <p className="text-xs opacity-60">あなたはどうする？（詳細）</p>
               <p className="text-xs opacity-70">方針: {directionLabels[direction]}</p>
               <input
-                className="border border-neutral-700 bg-transparent px-3 py-2 text-sm outline-none"
+                // text-base（16px）未満だと iOS が入力時に画面を拡大する
+                className="w-full border border-neutral-700 bg-transparent px-3 py-2 text-base outline-none"
                 placeholder="空欄のままでも進められます"
                 maxLength={200}
                 value={detail}
