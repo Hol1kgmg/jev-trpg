@@ -2,6 +2,31 @@
 list:
     @just --list
 
+# Install dependencies
+setup:
+    pnpm -C web install
+
+# Run the dev server
+dev:
+    pnpm -C web run dev
+
+# Run the test suite
+test:
+    pnpm -C web run test
+
+# Typecheck and test
+check:
+    pnpm -C web run typecheck
+    pnpm -C web run test
+
+# Build for production
+build:
+    pnpm -C web run build
+
+# Measure Jev interpretation accuracy against the real API
+eval-jev:
+    pnpm -C web run eval-jev
+
 # Install skills into .claude/skills
 skills:
     nix run .#skills-install-local

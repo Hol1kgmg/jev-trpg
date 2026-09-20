@@ -1,14 +1,21 @@
 <!--
 Sync Impact Report
-- Version change: (未採択テンプレート) → 1.0.0
-- Modified principles:
-  - [PRINCIPLE_1_NAME] → I. 判定はコード、解釈だけが LLM
-  - [PRINCIPLE_2_NAME] → II. 1ターン1回の Jev 呼び出し
-  - [PRINCIPLE_3_NAME] → III. 生成物は解けることを保証する
-  - [PRINCIPLE_4_NAME] → IV. LLM なしでテストできる
-  - [PRINCIPLE_5_NAME] → V. MVP 優先・YAGNI
-- Added sections: 技術制約とセキュリティ境界 / 開発ワークフロー
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: なし（5原則の本文に変更なし）
+- Modified sections:
+  - 技術制約とセキュリティ境界: Jev の呼び出し経路を公式 SDK 直アクセスから
+    Vercel AI Gateway 経由（AI SDK の experimental_evaluate、モデル ID
+    `typesafe-ai/jev`）に変更。理由は TypeSafe のアカウントを開設できないため。
+    秘匿値は `TYPESAFE_API_KEY` → `AI_GATEWAY_API_KEY`（ローカル）/
+    `VERCEL_OIDC_TOKEN`（Vercel 本番、自動注入）に置き換わる。
+- Added sections: なし
 - Removed sections: なし
+- 影響範囲:
+  - specs/001-jev-cosmic-horror-trpg/ の research.md (R-001/R-002/R-004),
+    contracts/jev-questions.md, plan.md, quickstart.md を同 PR で更新済み
+  - 実装コードは未着手のため影響なし
+- 過去の版:
+  - 1.0.0 (2026-09-20): 初版採択。5原則 + 技術制約 + 開発ワークフロー
 - Follow-up TODOs:
   - TODO(RATIFICATION_DATE): 初版採択日を 2026-09-20 と仮置き。実際の合意日が異なる場合は訂正すること。
 -->
@@ -66,10 +73,14 @@ MVP の完成まで実装してはならない。抽象化は 2 つ目の実装�
 ## 技術制約とセキュリティ境界
 
 - スタック: Next.js (App Router) + TypeScript、Zustand、Tailwind CSS、Vitest、Vercel。
-- Jev 呼び出しは公式 SDK `@typesafe-ai/sdk` を使い、Route Handler 経由でのみ行う。
-  Gateway 層は導入しない。
+- Jev 呼び出しは Vercel AI Gateway 経由で行う。AI SDK (`ai`) の
+  `experimental_evaluate` にモデル ID `typesafe-ai/jev` を文字列で渡し、Route Handler
+  からのみ呼ぶ。自前のゲートウェイ層やプロバイダ抽象を追加してはならない。
+  Gateway 経由で参照するモデルは Jev のみとし、複数プロバイダ対応は導入しない。
 - API キーはサーバー側にのみ置く。クライアントバンドルに秘匿値を含めてはならない。
   コミット前の gitleaks チェックを迂回してはならない。
+- `experimental_` 接頭辞の API に依存するため、`ai` パッケージはマイナー版まで固定し、
+  更新は呼び出し箇所の動作確認とセットで行う。
 - セーブデータは localStorage とする。クライアントから来た状態は信頼境界の外側であり、
   ターン処理に使う前にサーバー側で検証する。
 - プレイヤー入力のメタ的な指示（`meta_cheat`）は判定で検出し、ゲーム内の結果として
@@ -102,4 +113,4 @@ PATCH は文言の明確化・誤記修正など意味を変えない修正。
 原則から逸脱する実装は、逸脱の理由と、より単純な代替が不十分である根拠を
 PR に明記しなければならない。実行時の開発ガイダンスは AGENTS.md を参照する。
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-20
+**Version**: 1.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-20

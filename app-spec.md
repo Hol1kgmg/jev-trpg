@@ -12,7 +12,7 @@
 | 層 | 採用 | 備考 |
 |---|---|---|
 | フレームワーク | Next.js（App Router）＋TypeScript | |
-| Jev呼び出し | 公式SDK `@typesafe-ai/sdk` | 他のLLMを使わないのでGatewayは不要 |
+| Jev呼び出し | Vercel AI Gateway 経由（AI SDK の `experimental_evaluate`、モデルID `typesafe-ai/jev`） | TypeSafeのアカウントを開設できないため。Vercelのアカウントと請求に一本化する |
 | API | Next.jsのRoute Handler | APIキーはサーバー側にのみ置く |
 | 状態管理 | Zustand | セーブはlocalStorage |
 | スタイル | Tailwind CSS | |
