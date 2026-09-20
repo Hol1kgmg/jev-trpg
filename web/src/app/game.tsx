@@ -169,11 +169,12 @@ function Investigator({
   );
 }
 
-// 補正値・増減値は符号で色を変え、良し悪しを一目で伝える
+// 補正値・増減値は符号で色を変え、良し悪しを一目で伝える。
+// 前の語との間は空白文字だと狭いので余白で空ける
 function Signed({ n }: { n: number }) {
   const cls = n > 0 ? 'text-forest-light' : n < 0 ? 'text-blood-light' : '';
   return (
-    <span className={cls}>
+    <span className={`ml-1.5 ${cls}`}>
       {n > 0 && '+'}
       {n}
     </span>
@@ -186,13 +187,15 @@ function deltaText(entry: LogEntry): React.ReactNode {
   if (entry.delta.hp !== 0)
     parts.push(
       <>
-        HP <Signed n={entry.delta.hp} />
+        HP
+        <Signed n={entry.delta.hp} />
       </>,
     );
   if (entry.delta.sanity !== 0)
     parts.push(
       <>
-        正気度 <Signed n={entry.delta.sanity} />
+        正気度
+        <Signed n={entry.delta.sanity} />
       </>,
     );
   if (entry.delta.clueId !== null) parts.push('手がかりを得た');
@@ -218,14 +221,15 @@ function rateText(r: RateBreakdown | Check): React.ReactNode {
   if (r.base === undefined) return `${skillLabels[r.skill]} ${r.rate}`;
   return (
     <>
-      {skillLabels[r.skill]} {r.base} 妥当性 <Signed n={r.plausibility ?? 0} />
+      {skillLabels[r.skill]} {r.base}　妥当性
+      <Signed n={r.plausibility ?? 0} />
       {r.route ? (
         <>
-          {' '}
-          決め手 <Signed n={r.route} />
+          　決め手
+          <Signed n={r.route} />
         </>
-      ) : null}{' '}
-      ＝ {r.rate}
+      ) : null}
+      　＝ {r.rate}
     </>
   );
 }
@@ -236,7 +240,7 @@ function checkText(entry: LogEntry): React.ReactNode {
   return (
     <>
       {rateText(entry.check)}　→　出目 {entry.check.roll}
-      <span className={OUTCOME_CLASS[entry.outcome]}>{OUTCOME_LABEL[entry.outcome]}</span>
+      <span className={`ml-2 ${OUTCOME_CLASS[entry.outcome]}`}>{OUTCOME_LABEL[entry.outcome]}</span>
     </>
   );
 }
