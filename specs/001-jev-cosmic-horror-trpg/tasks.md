@@ -167,7 +167,7 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 - [X] T033 [P] `web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と期待する `skill` / `plausibility` を用意する。詳細が空のケースを数件含める
 - [X] T034 `web/src/lib/jev/__eval__/run.ts` に評価スクリプトを実装し、`just eval-jev` から実 API を叩いて一致率を出力する。Vitest のスイートに含めず CI からも除外する（Constitution IV / SC-005 目標 80%）
 - [X] T035 [P] `web/src/app/page.tsx` と `web/src/app/globals.css` を PC・スマートフォン縦画面で読める状態に整える（詳細なレスポンシブ最適化は範囲外）
-- [ ] T036 quickstart.md の手順 1〜8 を順に実行して検証する（手順 1 / 2 / 3 / 6 / 8 と 4 / 5 は確認済み。**手順 7（`just eval-jev`、実 API・課金あり）のみ未実施**）。特に手順 3（`AI_GATEWAY_API_KEY` / `SEAL_KEY` がクライアントバンドルに含まれないことの grep 確認）と手順 6（Jev 不達時に 100% のターンが結果描写まで到達すること）
+- [X] T036 quickstart.md の手順 1〜8 を順に実行して検証する（手順 1〜8 すべて確認済み。**手順 7（`just eval-jev`）の結果: skill 一致率 80.0%（24/30）、plausibility 一致率 83.3%（25/30）で SC-005 の目標 80% を満たす。ただし 30 件中 5 件が 5 秒のタイムアウトでフォールバックしており、この 80.0% はフォールバック分を含む境界値。タイムアウト率 17% は SC-004 に効くので T037 で確認する**）。特に手順 3（`AI_GATEWAY_API_KEY` / `SEAL_KEY` がクライアントバンドルに含まれないことの grep 確認）と手順 6（Jev 不達時に 100% のターンが結果描写まで到達すること）
 - [ ] T037 テストプレイを 10 回行い、所要時間の中央値（SC-002: 8〜12 分）、最初の行動を送信するまでの時間（SC-001: 30 秒以内）、レイテンシ（SC-004: 90% のターンで 3 秒以内）、4 つの終了理由への到達（SC-007）を計測する。ずれていれば `web/src/lib/game/tuning.ts` の数値だけを調整する
 - [ ] T038 Vercel の Project Settings で Root Directory が `web`、Framework Preset が Next.js になっていることを確認し、環境変数 `SEAL_KEY` を設定する（Gateway の認証は `VERCEL_OIDC_TOKEN` の自動注入で済むため設定不要。research.md R-001）
 - [X] T039 `just scan` で gitleaks を実行し、秘匿値がワーキングツリーに残っていないことを確認する
@@ -272,6 +272,6 @@ T026〜T028 を終えておく**と、登録漏れがその場でテストに落
 
 - [X] T040 `web/src/lib/game/visible.test.ts` を追加し、`toVisible` が怪異の `nature` / `purpose` / `weakness` / `manifestation`、`clearCondition` の全フィールド、未入手 `Clue` の本文、探索者の `secret` を投影に含めないことを検証する per FR-003 / FR-027 / SC-008 (missing)
 - [X] T041 `web/src/app/api/turn/route.test.ts` を追加し、Route Handler の異常系を検証する: 200 文字超・不正な `direction` で `400 invalid_action`、改竄された封緘文字列で `400 invalid_state`、`turn` 不一致で `409 turn_mismatch`（いずれも状態を更新しないこと）per FR-016 / Edge「同一ターン内に送信が重複」「詳細入力が極端に長い」 (missing)
-- [X] T042 `adr/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
+- [X] T042 `adr/jev-trpg/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
 - [X] T043 `.specify/memory/constitution.md` の原則 V「1プレイ15〜20分」を spec.md SC-002 / plan.md の「8〜12分」に合わせて改定する（Governance の改定手順に従い、バージョンと Sync Impact Report を更新する）per Constitution V vs SC-002 (contradicts)
 - [X] T044 `web/src/lib/game/resolve.ts` がハードコードしている HP・正気度の上限 `10` を `web/src/lib/game/tuning.ts` の定数に移し、`resolve.ts` から参照する per plan.md「tuning.ts = 暫定値の集約点」 (partial)

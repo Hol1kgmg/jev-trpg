@@ -64,6 +64,13 @@ async function main(): Promise<void> {
   console.log(`skill 一致率: ${rate(skillHits)}（${skillHits}/${total}）`);
   console.log(`plausibility 一致率（±1 レベル）: ${rate(plausibilityHits)}（${plausibilityHits}/${total}）`);
   console.log('SC-005 の目標は 80%。届かなければ questions.ts の criteria 文言を調整する。');
+
+  // 全件フォールバックなら測っているのは Jev ではなく fallbackJudgment の固定値。
+  // 一致率がそれらしい数字に見えてしまうので、測定として無効だと明示して落とす。
+  if (degraded === total) {
+    console.error('\n全件が呼び出し失敗。上の一致率は Jev ではなくフォールバック値の一致率で、SC-005 の測定として無効。');
+    process.exitCode = 1;
+  }
 }
 
 await main();

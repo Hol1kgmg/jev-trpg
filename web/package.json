@@ -11,7 +11,7 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "eval-jev": "tsx --env-file-if-exists=.env src/lib/jev/__eval__/run.ts"
+    "eval-jev": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local src/lib/jev/__eval__/run.ts"
   },
   "dependencies": {
     "ai": "~7.0.107",

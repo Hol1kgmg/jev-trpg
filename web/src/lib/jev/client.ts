@@ -79,7 +79,11 @@ export async function judge(
       abortSignal: AbortSignal.timeout(jevTimeoutMs),
     });
     return normalizeJudgment(result);
-  } catch {
+  } catch (error) {
+    // 握り潰すとフォールバックか実結果か区別がつかない。ゲームは止めないが原因は残す。
+    // error 全体は requestBodyValues 経由でクリア条件（FR-003 の秘匿対象）を含むため、
+    // メッセージだけをログに出す。
+    console.error('jev: falling back', error instanceof Error ? error.message : error);
     return fallbackJudgment;
   }
 }
