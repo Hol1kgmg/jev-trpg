@@ -11,6 +11,9 @@
   # vercel/ai
   "adr-skill"
 
+  # typesafe-ai/skills
+  "typesafe-ai"
+
   # gist
   "cognitive-rhythm-writing"
   "japanese-tech-writing"

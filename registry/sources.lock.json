@@ -57,6 +57,25 @@
       },
       "subdir": "."
     },
+    "typesafe-ai": {
+      "filter": {
+        "maxDepth": null,
+        "nameRegex": null
+      },
+      "idPrefix": null,
+      "pin": {
+        "at": null,
+        "branch": "main",
+        "owner": "typesafe-ai",
+        "preReleases": false,
+        "releasePrefix": null,
+        "repo": "skills",
+        "submodules": false,
+        "type": "github",
+        "versionUpperBound": null
+      },
+      "subdir": "skills"
+    },
     "vercel": {
       "filter": {
         "maxDepth": null,
@@ -115,6 +134,19 @@
         "submodules": false,
         "type": "Git",
         "url": null
+      },
+      "typesafe-ai": {
+        "branch": "main",
+        "hash": "sha256-Lh2Y90TFv+njKqo/g5WXEHw0Rk1jQSH5POqKtrvy5kM=",
+        "repository": {
+          "owner": "typesafe-ai",
+          "repo": "skills",
+          "type": "GitHub"
+        },
+        "revision": "65a39f393687675ce170e6094757de20370365b9",
+        "submodules": false,
+        "type": "Git",
+        "url": "https://github.com/typesafe-ai/skills/archive/65a39f393687675ce170e6094757de20370365b9.tar.gz"
       },
       "vercel": {
         "branch": "main",
