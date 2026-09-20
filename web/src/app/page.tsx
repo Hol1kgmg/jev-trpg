@@ -341,8 +341,20 @@ export default function Page() {
     </footer>
   );
 
+  // 前回の演出用の状態も一緒に捨てる。残すと新しいゲームで直前の幕切れが再生される
   const restart = (
-    <Btn className="justify-self-start self-start" onClick={() => void newGame()} disabled={sending}>
+    <Btn
+      className="justify-self-start self-start"
+      onClick={() => {
+        setDirection(null);
+        setDetail('');
+        setReveal(null);
+        setFrozen(null);
+        setEnding(null);
+        void newGame();
+      }}
+      disabled={sending}
+    >
       新規開始
     </Btn>
   );
