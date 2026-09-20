@@ -93,9 +93,9 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 
 ## Phase 2: Jev の実接続（M1）
 
-- [ ] T013 [P] [US1] `web/src/lib/jev/questions.ts` に 6 問を contracts/jev-questions.md のとおりプレーンオブジェクトで定義する（`choice` 1 / `score` 2 / `boolean` 3）。`action_type` は**含めない**（プレイヤーの 4 択で確定するため。FR-030）。`clearCondition` を受け取って `meets_clear` の `instructions` に埋め込む関数形にする
-- [ ] T014 [US1] `web/src/lib/jev/client.ts` の `judge(state): Promise<Judgment>` に実 API 経路を実装する（`JEV_STUB` が `'1'` でないとき通る側。スタブ分岐は残す）。`experimental_evaluate({ model: 'typesafe-ai/jev', state, questions, providerOptions: { gateway: { zeroDataRetention: true } } })` を**1 回だけ**呼び、5 秒でタイムアウトする。`confidence` は `providerMetadata.typesafe.confidence.skill`（欠損時 `0`）。失敗時は再試行せず contracts/http-api.md のフォールバック `Judgment` を返す（Constitution II）
-- [ ] T015 [P] [US1] `web/src/lib/jev/client.test.ts` に `judge()` の正規化テストとフォールバックテストを書く: `ai/test` の `Experimental_EvaluationMockModelV4` で応答を差し替え、contracts/jev-questions.md の写像表どおりに `Judgment` へ変換されること、`providerMetadata` 欠損時に `confidence` が `0` になること、例外・タイムアウト・スキーマ不一致で `source: 'fallback'` かつ `confidence: 0` の `Judgment` が返ること（SC-006）
+- [X] T013 [P] [US1] `web/src/lib/jev/questions.ts` に 6 問を contracts/jev-questions.md のとおりプレーンオブジェクトで定義する（`choice` 1 / `score` 2 / `boolean` 3）。`action_type` は**含めない**（プレイヤーの 4 択で確定するため。FR-030）。`clearCondition` を受け取って `meets_clear` の `instructions` に埋め込む関数形にする
+- [X] T014 [US1] `web/src/lib/jev/client.ts` の `judge(state): Promise<Judgment>` に実 API 経路を実装する（`JEV_STUB` が `'1'` でないとき通る側。スタブ分岐は残す）。`experimental_evaluate({ model: 'typesafe-ai/jev', state, questions, providerOptions: { gateway: { zeroDataRetention: true } } })` を**1 回だけ**呼び、5 秒でタイムアウトする。`confidence` は `providerMetadata.typesafe.confidence.skill`（欠損時 `0`）。失敗時は再試行せず contracts/http-api.md のフォールバック `Judgment` を返す（Constitution II）
+- [X] T015 [P] [US1] `web/src/lib/jev/client.test.ts` に `judge()` の正規化テストとフォールバックテストを書く: `ai/test` の `Experimental_EvaluationMockModelV4` で応答を差し替え、contracts/jev-questions.md の写像表どおりに `Judgment` へ変換されること、`providerMetadata` 欠損時に `confidence` が `0` になること、例外・タイムアウト・スキーマ不一致で `source: 'fallback'` かつ `confidence: 0` の `Judgment` が返ること（SC-006）
 - [X] T016 [US1] 既存テストを改訂後の形に更新する: `web/src/lib/game/resolve.test.ts`（`resolveTurn` の新しい引数、`observe` 成功で手がかりが増えること）、`web/src/lib/game/ending.test.ts`（`timeout` が `turn > 8`）、`web/src/lib/game/turn.e2e.test.ts`（8 ターン通し、4 つの終了理由すべてに到達）
 
 **Checkpoint**: `JEV_STUB` を外して実 API で同じ一巡が動く
@@ -262,3 +262,16 @@ T026〜T028 を終えておく**と、登録漏れがその場でテストに落
 - 数値の調整は `web/src/lib/game/tuning.ts` 1 ファイルだけを触る
 - lefthook の Git フックを無効化してコミットしない（Constitution 開発ワークフロー）
 - 各タスクまたは論理的なまとまりごとにコミットする
+
+---
+
+## Phase 8: Convergence
+
+**Purpose**: 現状のコードを spec.md / plan.md / Constitution に突き合わせて残った差分。
+既存の未完了タスク（T013〜T039）が扱う範囲は含めない。
+
+- [ ] T040 `web/src/lib/game/visible.test.ts` を追加し、`toVisible` が怪異の `nature` / `purpose` / `weakness` / `manifestation`、`clearCondition` の全フィールド、未入手 `Clue` の本文、探索者の `secret` を投影に含めないことを検証する per FR-003 / FR-027 / SC-008 (missing)
+- [ ] T041 `web/src/app/api/turn/route.test.ts` を追加し、Route Handler の異常系を検証する: 200 文字超・不正な `direction` で `400 invalid_action`、改竄された封緘文字列で `400 invalid_state`、`turn` 不一致で `409 turn_mismatch`（いずれも状態を更新しないこと）per FR-016 / Edge「同一ターン内に送信が重複」「詳細入力が極端に長い」 (missing)
+- [ ] T042 `adr/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
+- [ ] T043 `.specify/memory/constitution.md` の原則 V「1プレイ15〜20分」を spec.md SC-002 / plan.md の「8〜12分」に合わせて改定する（Governance の改定手順に従い、バージョンと Sync Impact Report を更新する）per Constitution V vs SC-002 (contradicts)
+- [ ] T044 `web/src/lib/game/resolve.ts` がハードコードしている HP・正気度の上限 `10` を `web/src/lib/game/tuning.ts` の定数に移し、`resolve.ts` から参照する per plan.md「tuning.ts = 暫定値の集約点」 (partial)
