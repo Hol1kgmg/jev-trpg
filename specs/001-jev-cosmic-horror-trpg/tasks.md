@@ -124,8 +124,8 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 手がかりを出し尽くした後の観察成功で増えないこと。
 
 - [X] T020 [P] [US2] `web/src/lib/game/resolve.test.ts` に手がかり入手のテストを追加する: `direction === 'observe'` かつ成功系で `acquiredClueIds` が 1 件増えること（AS 2-1）、未入手の手がかりが尽きた状態では増えないこと（AS 2-2）、`observe` 以外の方向性では成功しても増えないこと
-- [ ] T021 [P] [US2] `web/src/data/templates/clues.ts` に手がかり文と、これ以上読み取れないときの描写を書く
-- [ ] T022 [US2] `web/src/app/page.tsx` に入手済み手がかりの一覧表示を追加する（FR-017 / AS 2-1）
+- [X] T021 [P] [US2] `web/src/data/templates/clues.ts` に手がかり文と、これ以上読み取れないときの描写を書く
+- [X] T022 [US2] `web/src/app/page.tsx` に入手済み手がかりの一覧表示を追加する（FR-017 / AS 2-1）
 
 **Checkpoint**: US1 と US2 が両方独立に動作する
 
@@ -163,7 +163,7 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T032 [P] `web/src/data/templates/hallucinations.ts` に正気度低下時の幻覚描写を書き、`web/src/lib/game/narrate.ts` が正気度に応じて混ぜるようにする（エッジケース「正気度が低下した状態」）
+- [X] T032 [P] `web/src/data/templates/hallucinations.ts` に正気度低下時の幻覚描写を書き、`web/src/lib/game/narrate.ts` が正気度に応じて混ぜるようにする（エッジケース「正気度が低下した状態」）
 - [ ] T033 [P] `web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と期待する `skill` / `plausibility` を用意する。詳細が空のケースを数件含める
 - [ ] T034 `web/src/lib/jev/__eval__/run.ts` に評価スクリプトを実装し、`just eval-jev` から実 API を叩いて一致率を出力する。Vitest のスイートに含めず CI からも除外する（Constitution IV / SC-005 目標 80%）
 - [ ] T035 [P] `web/src/app/page.tsx` と `web/src/app/globals.css` を PC・スマートフォン縦画面で読める状態に整える（詳細なレスポンシブ最適化は範囲外）
