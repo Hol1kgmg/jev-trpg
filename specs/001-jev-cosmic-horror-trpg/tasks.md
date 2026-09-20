@@ -137,9 +137,9 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 
 **Independent Test**: プレイ途中と待機画面のそれぞれでページを再読み込みし、状態が保持されること。
 
-- [ ] T023 [P] [US3] `web/src/lib/store.test.ts` に復元テストを書く: 保存値が壊れている／`version` が不一致のとき例外を投げず「新規プレイを提案する」状態に落ちること、`phase` が `'briefing'` のまま保存・復元されること（AS 3-2）
-- [ ] T024 [US3] `web/src/lib/store.ts` に localStorage 永続化を追加する。保存するのは封緘文字列・`VisibleState`・`phase` のみ（data-model.md 信頼境界）
-- [ ] T025 [US3] `web/src/app/page.tsx` に復元処理と「新規開始」の導線を実装する。`/api/turn` が `400 invalid_state` を返した場合、または保存値の読み取りに失敗した場合はエラー画面で止めずに新規プレイを提案する。決着後に新規開始を選ぶと `/api/new-game` を呼び、前回の保存値を破棄して待機画面から始める（AS 3-1 / AS 3-3）
+- [X] T023 [P] [US3] `web/src/lib/store.test.ts` に復元テストを書く: 保存値が壊れている／`version` が不一致のとき例外を投げず「新規プレイを提案する」状態に落ちること、`phase` が `'briefing'` のまま保存・復元されること（AS 3-2）
+- [X] T024 [US3] `web/src/lib/store.ts` に localStorage 永続化を追加する。保存するのは封緘文字列・`VisibleState`・`phase` のみ（data-model.md 信頼境界）
+- [X] T025 [US3] `web/src/app/page.tsx` に復元処理と「新規開始」の導線を実装する。`/api/turn` が `400 invalid_state` を返した場合、または保存値の読み取りに失敗した場合はエラー画面で止めずに新規プレイを提案する。決着後に新規開始を選ぶと `/api/new-game` を呼び、前回の保存値を破棄して待機画面から始める（AS 3-1 / AS 3-3）
 
 **Checkpoint**: 3 つのユーザーストーリーがすべて独立に動作する
 

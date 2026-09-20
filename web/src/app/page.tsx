@@ -21,16 +21,40 @@ const directionLabels: Record<Direction, string> = {
 };
 
 export default function Page() {
-  const { visible, phase, sending, error, newGame, startSession, submit } = useGame();
+  const { visible, phase, sending, error, newGame, restore, startSession, submit } = useGame();
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
 
+  // 保存値があれば続きから、なければ新規プレイ（AS 3-1）
   useEffect(() => {
-    if (useGame.getState().visible === null) void newGame();
-  }, [newGame]);
+    if (useGame.getState().visible === null) void restore();
+  }, [restore]);
 
+  const restart = (
+    <button
+      type="button"
+      className="justify-self-start self-start border border-neutral-700 px-4 py-2 text-xs"
+      onClick={() => void newGame()}
+      disabled={sending}
+    >
+      新規開始
+    </button>
+  );
+
+  // 復元にも新規プレイにも失敗した状態。行き止まりにせず新規プレイを提案する（AS 3-3）
   if (visible === null) {
-    return <main className="p-6 text-sm opacity-70">{error ? '開始できませんでした。' : '……'}</main>;
+    return (
+      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6 text-sm opacity-80">
+        {error ? (
+          <>
+            <p>続きを読み込めませんでした。新しく始めてください。</p>
+            {restart}
+          </>
+        ) : (
+          <p className="opacity-70">……</p>
+        )}
+      </main>
+    );
   }
 
   const investigator = (
@@ -125,14 +149,7 @@ export default function Page() {
               <dd className="inline">{visible.ending!.reveal.secret}</dd>
             </div>
           </dl>
-          <button
-            type="button"
-            className="justify-self-start border border-neutral-700 px-4 py-2 text-xs"
-            onClick={() => void newGame()}
-            disabled={sending}
-          >
-            新規開始
-          </button>
+          {restart}
         </section>
       ) : (
         <section className="grid gap-3 border-t border-neutral-800 pt-4">
@@ -204,7 +221,10 @@ export default function Page() {
         <p className="text-xs text-amber-500">その入力は受け付けられませんでした。</p>
       )}
       {error === 'invalid_state' && (
-        <p className="text-xs text-amber-500">保存された状態を読めませんでした。新規開始してください。</p>
+        <section className="grid gap-2">
+          <p className="text-xs text-amber-500">保存された状態を読めませんでした。</p>
+          {restart}
+        </section>
       )}
     </main>
   );
