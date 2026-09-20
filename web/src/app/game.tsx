@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { siteName } from '@/lib/site';
 import { previewDebounceMs } from '@/lib/game/tuning';
@@ -57,7 +57,7 @@ const ENDING_STYLE: Record<Ending['reason'], { label: string; text: string; box:
   retire: { label: '失敗', text: 'text-blood-light', box: 'border-blood/50 bg-blood/6' },
 };
 
-// 成否を色で伝える。両端は強い色、通常の成否は抑えた色
+// 成否ラベルだけを色で強調する。判定行や描写文は dim のまま
 const OUTCOME_CLASS: Partial<Record<LogEntry['outcome'], string>> = {
   critical_success: 'text-gold',
   success: 'text-forest-light',
@@ -169,24 +169,7 @@ function Investigator({
   );
 }
 
-// 行動が何をもたらしたかは描写文からは読み取れないので、増減を数字で添える
-function deltaText(entry: LogEntry): string {
-  const parts: string[] = [];
-  if (entry.delta.hp !== 0) parts.push(`HP ${entry.delta.hp > 0 ? '+' : ''}${entry.delta.hp}`);
-  if (entry.delta.sanity !== 0)
-    parts.push(`正気度 ${entry.delta.sanity > 0 ? '+' : ''}${entry.delta.sanity}`);
-  if (entry.delta.clueId !== null) parts.push('手がかりを得た');
-  return parts.join('　');
-}
-
-const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
-  critical_success: '決定的成功',
-  success: '成功',
-  failure: '失敗',
-  fumble: '致命的失敗',
-};
-
-// 補正値は符号で色を変え、良し悪しを一目で伝える
+// 補正値・増減値は符号で色を変え、良し悪しを一目で伝える
 function Signed({ n }: { n: number }) {
   const cls = n > 0 ? 'text-forest-light' : n < 0 ? 'text-blood-light' : '';
   return (
@@ -196,6 +179,38 @@ function Signed({ n }: { n: number }) {
     </span>
   );
 }
+
+// 行動が何をもたらしたかは描写文からは読み取れないので、増減を数字で添える
+function deltaText(entry: LogEntry): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  if (entry.delta.hp !== 0)
+    parts.push(
+      <>
+        HP <Signed n={entry.delta.hp} />
+      </>,
+    );
+  if (entry.delta.sanity !== 0)
+    parts.push(
+      <>
+        正気度 <Signed n={entry.delta.sanity} />
+      </>,
+    );
+  if (entry.delta.clueId !== null) parts.push('手がかりを得た');
+  if (parts.length === 0) return null;
+  return parts.map((p, i) => (
+    <Fragment key={i}>
+      {i > 0 && '　'}
+      {p}
+    </Fragment>
+  ));
+}
+
+const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
+  critical_success: '決定的成功',
+  success: '成功',
+  failure: '失敗',
+  fumble: '致命的失敗',
+};
 
 // 成功率の内訳。Jev の解釈（妥当性・決め手）がどこで効いたかを数字で見せる（ADR 0004）。
 // 内訳を持たない旧ログでは目標値だけになる
@@ -220,7 +235,8 @@ function checkText(entry: LogEntry): React.ReactNode {
   if (!entry.check) return null;
   return (
     <>
-      {rateText(entry.check)}　→　出目 {entry.check.roll}　{OUTCOME_LABEL[entry.outcome] ?? ''}
+      {rateText(entry.check)}　→　出目 {entry.check.roll}
+      <span className={OUTCOME_CLASS[entry.outcome]}>{OUTCOME_LABEL[entry.outcome]}</span>
     </>
   );
 }
@@ -235,13 +251,9 @@ function LogArticle({ entry }: { entry: LogEntry }) {
         {entry.detail && `（${entry.detail}）`}
       </p>
       {check && (
-        <p
-          className={`font-display text-xs tabular-nums tracking-wider ${OUTCOME_CLASS[entry.outcome] ?? 'text-dim'}`}
-        >
-          {check}
-        </p>
+        <p className="font-display text-xs tabular-nums tracking-wider text-dim">{check}</p>
       )}
-      <p className={OUTCOME_CLASS[entry.outcome]}>{entry.narration}</p>
+      <p>{entry.narration}</p>
       {delta && <p className="text-xs tabular-nums text-dim">{delta}</p>}
     </article>
   );
@@ -303,13 +315,13 @@ function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
         {/* 出目を描写より先に見せる。描写は出目の帰結なので、順序で因果を示す */}
         {check && (
           <p
-            className={`animate-fade-in pt-3 font-display text-sm tabular-nums tracking-wider [animation-delay:1200ms] [animation-fill-mode:backwards] ${OUTCOME_CLASS[entry.outcome] ?? 'text-dim'}`}
+            className="animate-fade-in pt-3 font-display text-sm tabular-nums tracking-wider text-dim [animation-delay:1200ms] [animation-fill-mode:backwards]"
           >
             {check}
           </p>
         )}
         {/* 行ごとに立ち上げる（use-split-lines） */}
-        <p ref={narration} className={`pt-3 text-base leading-loose ${OUTCOME_CLASS[entry.outcome] ?? ''}`}>
+        <p ref={narration} className="pt-3 text-base leading-loose">
           {entry.narration}
         </p>
         {delta && (
