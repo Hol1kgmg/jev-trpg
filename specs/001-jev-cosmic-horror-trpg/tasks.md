@@ -167,10 +167,10 @@ Phase 3（T017〜T019）→ US2（T020〜T022）→ US3（T023〜T025）→ Phas
 - [X] T033 [P] `web/src/lib/jev/__eval__/cases.ja.json` に、方向性と詳細入力の組 30 件と期待する `skill` / `plausibility` を用意する。詳細が空のケースを数件含める
 - [X] T034 `web/src/lib/jev/__eval__/run.ts` に評価スクリプトを実装し、`just eval-jev` から実 API を叩いて一致率を出力する。Vitest のスイートに含めず CI からも除外する（Constitution IV / SC-005 目標 80%）
 - [X] T035 [P] `web/src/app/page.tsx` と `web/src/app/globals.css` を PC・スマートフォン縦画面で読める状態に整える（詳細なレスポンシブ最適化は範囲外）
-- [ ] T036 quickstart.md の手順 1〜8 を順に実行して検証する。特に手順 3（`AI_GATEWAY_API_KEY` / `SEAL_KEY` がクライアントバンドルに含まれないことの grep 確認）と手順 6（Jev 不達時に 100% のターンが結果描写まで到達すること）
+- [ ] T036 quickstart.md の手順 1〜8 を順に実行して検証する（手順 1 / 2 / 3 / 6 / 8 と 4 / 5 は確認済み。**手順 7（`just eval-jev`、実 API・課金あり）のみ未実施**）。特に手順 3（`AI_GATEWAY_API_KEY` / `SEAL_KEY` がクライアントバンドルに含まれないことの grep 確認）と手順 6（Jev 不達時に 100% のターンが結果描写まで到達すること）
 - [ ] T037 テストプレイを 10 回行い、所要時間の中央値（SC-002: 8〜12 分）、最初の行動を送信するまでの時間（SC-001: 30 秒以内）、レイテンシ（SC-004: 90% のターンで 3 秒以内）、4 つの終了理由への到達（SC-007）を計測する。ずれていれば `web/src/lib/game/tuning.ts` の数値だけを調整する
 - [ ] T038 Vercel の Project Settings で Root Directory が `web`、Framework Preset が Next.js になっていることを確認し、環境変数 `SEAL_KEY` を設定する（Gateway の認証は `VERCEL_OIDC_TOKEN` の自動注入で済むため設定不要。research.md R-001）
-- [ ] T039 `just scan` で gitleaks を実行し、秘匿値がワーキングツリーに残っていないことを確認する
+- [X] T039 `just scan` で gitleaks を実行し、秘匿値がワーキングツリーに残っていないことを確認する
 
 ---
 
