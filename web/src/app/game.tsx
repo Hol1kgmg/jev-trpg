@@ -270,6 +270,14 @@ function CheckGauge({
           className="absolute inset-y-0 right-0 rounded-r-full bg-blood/70"
           style={{ width: `${101 - fumbleFloor}%` }}
         />
+        {/* 25 刻みの目盛り線。下の数字と位置を揃え、塗りの幅が数値そのものだと読めるようにする */}
+        <div
+          className="absolute inset-y-0 left-0 w-full"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(to right, transparent 0 calc(25% - 1px), var(--color-edge) calc(25% - 1px) 25%)',
+          }}
+        />
         {roll !== undefined && (
           <div
             className={`absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 bg-parchment ${markerClass}`}
@@ -277,6 +285,11 @@ function CheckGauge({
           />
         )}
       </div>
+      <p className="flex justify-between font-display text-[10px] leading-none tabular-nums text-dim">
+        {[0, 25, 50, 75, 100].map((n) => (
+          <span key={n}>{n}</span>
+        ))}
+      </p>
       {roll !== undefined && outcome && (
         <p className={`flex justify-between font-display text-xs tabular-nums tracking-wider text-dim ${labelClass}`}>
           <span>出目 {roll}</span>
@@ -724,14 +737,6 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
               {direction === null ? (
                 <div className="grid gap-2">
                   <p className="text-xs text-dim">あなたはどうする？（方針）</p>
-                  {/* 次に何をすべきかを状況で切り替える: 枠が空なら観察、揃ったら決着 */}
-                  <p className="text-xs text-dim">
-                    {visible.readyDirections.length > 0
-                      ? `${visible.readyDirections.map((d) => directionLabels[d]).join('・')}で決着できる。調書の手がかりを踏まえ、何をするかを詳細に書け。`
-                      : visible.acquiredClues.length === 0
-                        ? 'まずは観察して、調書の枠を埋める。'
-                        : '観察を重ねて枠を埋める。揃った枠の方針で決着できる。'}
-                  </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {DIRECTIONS.map((d) => {
                       const ready = d !== 'observe' && visible.readyDirections.includes(d);
@@ -769,7 +774,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                   }}
                 >
                   <p className="text-xs text-dim">あなたはどうする？（詳細）</p>
-                  <p className="font-display text-xs tracking-wider text-forest-light">
+                  <p className="font-display text-xs tracking-wider text-dim">
                     方針: {directionLabels[direction]}
                     {direction !== 'observe' && visible.readyDirections.includes(direction) && (
                       <span className="text-gold">　決着できる</span>
@@ -791,26 +796,30 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                     disabled={sending || previewExhausted}
                     autoFocus
                   />
+                  {/* 事前判定の状態を 1 行で示す。測定後は内訳行の数字が結果の合図なので空ける */}
+                  <p className="min-h-4 font-display text-xs tracking-wider text-dim">
+                    {shownPreview ? null : previewExhausted ? (
+                      'これ以上は測れない'
+                    ) : previewing ? (
+                      <span className="animate-flicker text-gold">判定を測定中……</span>
+                    ) : (
+                      '入力受け付け中'
+                    )}
+                  </p>
                   {/* 測定前は技能値そのものを成功域として見せ、測定後に補正込みの目標値へ伸縮させる。
                       ロールしない判定は測定前の幅のまま */}
                   <CheckGauge
                     rate={shownPreview?.rate?.rate ?? visible.skills[litSkill!]}
                     className={previewing ? 'animate-pulse' : ''}
                   />
-                  {/* 事前判定の状態を常に 1 行で示す: 入力待ち → 測定中 → 結果。
-                      見せるのはダイス補正だけ。ロールしない判定は「……」 */}
-                  <p className="min-h-4 font-display text-xs tabular-nums tracking-wider text-dim">
-                    {shownPreview ? (
-                      <>
-                        <span className="text-forest-light">測定結果　</span>
-                        {shownPreview.rate ? rateText(shownPreview.rate) : '……'}
-                      </>
-                    ) : previewExhausted ? (
-                      'これ以上は測れない'
-                    ) : previewing ? (
-                      <span className="animate-flicker text-gold">判定を測定中……</span>
+                  {/* ゲージ幅の根拠を測定前から見せる。未測定の補正は ??? で伏せる */}
+                  <p className="font-display text-xs tabular-nums tracking-wider text-dim">
+                    {shownPreview?.rate ? (
+                      rateText(shownPreview.rate)
+                    ) : shownPreview ? (
+                      `${skillLabels[litSkill!]} ${visible.skills[litSkill!]}　ロールなし`
                     ) : (
-                      '入力待ち'
+                      `${skillLabels[litSkill!]} ${visible.skills[litSkill!]}　妥当性 ???　＝ ???`
                     )}
                   </p>
                   <div className="flex gap-2">
