@@ -57,9 +57,11 @@ const ENDING_STYLE: Record<Ending['reason'], { label: string; text: string; box:
   retire: { label: '失敗', text: 'text-blood-light', box: 'border-blood/50 bg-blood/6' },
 };
 
-// 成否の両端だけ色で強調する。中間は描写文に任せる
+// 成否を色で伝える。両端は強い色、通常の成否は抑えた色
 const OUTCOME_CLASS: Partial<Record<LogEntry['outcome'], string>> = {
   critical_success: 'text-gold',
+  success: 'text-forest-light',
+  failure: 'text-blood-light/80',
   fumble: 'text-blood-light',
 };
 
@@ -184,21 +186,43 @@ const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
   fumble: '致命的失敗',
 };
 
-const signed = (n: number) => `${n > 0 ? '+' : ''}${n}`;
+// 補正値は符号で色を変え、良し悪しを一目で伝える
+function Signed({ n }: { n: number }) {
+  const cls = n > 0 ? 'text-forest-light' : n < 0 ? 'text-blood-light' : '';
+  return (
+    <span className={cls}>
+      {n > 0 && '+'}
+      {n}
+    </span>
+  );
+}
 
 // 成功率の内訳。Jev の解釈（妥当性・決め手）がどこで効いたかを数字で見せる（ADR 0004）。
 // 内訳を持たない旧ログでは目標値だけになる
-function rateText(r: RateBreakdown | Check): string {
+function rateText(r: RateBreakdown | Check): React.ReactNode {
   if (r.base === undefined) return `${skillLabels[r.skill]} ${r.rate}`;
-  const parts = [`${skillLabels[r.skill]} ${r.base}`, `妥当性 ${signed(r.plausibility ?? 0)}`];
-  if (r.route) parts.push(`決め手 ${signed(r.route)}`);
-  return `${parts.join(' ')} ＝ ${r.rate}`;
+  return (
+    <>
+      {skillLabels[r.skill]} {r.base} 妥当性 <Signed n={r.plausibility ?? 0} />
+      {r.route ? (
+        <>
+          {' '}
+          決め手 <Signed n={r.route} />
+        </>
+      ) : null}{' '}
+      ＝ {r.rate}
+    </>
+  );
 }
 
 // 判定は d100 の下方ロール。どの技能で、目標値いくつに対して、何が出たかを 1 行で示す
-function checkText(entry: LogEntry): string | null {
+function checkText(entry: LogEntry): React.ReactNode {
   if (!entry.check) return null;
-  return `${rateText(entry.check)}　→　出目 ${entry.check.roll}　${OUTCOME_LABEL[entry.outcome] ?? ''}`;
+  return (
+    <>
+      {rateText(entry.check)}　→　出目 {entry.check.roll}　{OUTCOME_LABEL[entry.outcome] ?? ''}
+    </>
+  );
 }
 
 function LogArticle({ entry }: { entry: LogEntry }) {
@@ -251,7 +275,7 @@ function Modal({
       {/* 自動で閉じるが、待たずに進めることも示す */}
       <button
         type="button"
-        className="animate-fade-in mx-auto block min-h-11 px-4 pt-3 font-display text-xs tracking-[0.2em] text-dim hover:text-parchment [animation-delay:2600ms] [animation-fill-mode:backwards]"
+        className="animate-fade-in mx-auto block min-h-11 px-4 pt-3 font-display text-xs tracking-[0.2em] text-dim outline-none hover:text-parchment [animation-delay:2600ms] [animation-fill-mode:backwards]"
       >
         閉じる
       </button>
@@ -395,14 +419,16 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
     if (useGame.getState().visible === null) void restore();
   }, [restore]);
 
-  // どの画面からも 1 クリックで到達できる位置に置く（FR-025）
-  const credits = (
-    <footer className="border-t border-edge pt-3">
+  // どの画面からも 1 クリックで到達できる位置に置く（FR-025）。右端は補助操作の置き場
+  const footer = (right?: React.ReactNode) => (
+    <footer className="flex items-center justify-between border-t border-edge pt-3">
       <Link className="text-xs text-dim underline hover:text-parchment" href="/credits">
         クレジット
       </Link>
+      {right}
     </footer>
   );
+  const credits = footer();
 
   // 前回の演出用の状態も一緒に捨てる。残すと新しいゲームで直前の幕切れが再生される
   const startOver = () => {
@@ -414,7 +440,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
     void newGame();
   };
   const restart = (
-    <Btn className="justify-self-start self-start" onClick={startOver} disabled={sending}>
+    <Btn primary className="w-52 justify-self-center self-center" onClick={startOver} disabled={sending}>
       新規開始
     </Btn>
   );
@@ -704,20 +730,6 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                 </form>
               )}
             </section>
-
-            {/* 途中で降りる道。決着として扱い、幕切れと正体の開示は通常の終了と同じ画面で見せる */}
-            <Btn
-              className="justify-self-start border-transparent"
-              disabled={sending}
-              onClick={() => {
-                if (!confirm('この対峙をあきらめますか？')) return;
-                setDirection(null);
-                setDetail('');
-                void retire().then(() => setEnding(useGame.getState().visible?.ending ?? null));
-              }}
-            >
-              あきらめる
-            </Btn>
           </>
         )}
 
@@ -731,7 +743,23 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
           </section>
         )}
 
-        {credits}
+        {/* 途中で降りる道は目立たせず、フッターの隅に置く。決着として扱い、幕切れは通常の終了と同じ画面で見せる */}
+        {footer(
+          !ended && (
+            <Btn
+              className="border-transparent"
+              disabled={sending}
+              onClick={() => {
+                if (!confirm('この対峙をあきらめますか？')) return;
+                setDirection(null);
+                setDetail('');
+                void retire().then(() => setEnding(useGame.getState().visible?.ending ?? null));
+              }}
+            >
+              あきらめる
+            </Btn>
+          ),
+        )}
       </div>
 
       {/* ターンごとに作り直してフェードインをやり直す。閉じた後は残しておくだけで害がない */}
