@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { siteName } from '@/lib/site';
-import { previewDebounceMs } from '@/lib/game/tuning';
+import { fumbleFloor, previewDebounceMs } from '@/lib/game/tuning';
 import { useSplitLines } from '@/lib/use-split-lines';
 import {
   DIRECTIONS,
@@ -234,31 +234,98 @@ function rateText(r: RateBreakdown | Check): React.ReactNode {
   );
 }
 
-// 判定は d100 の下方ロール。どの技能で、目標値いくつに対して、何が出たかを 1 行で示す
-function checkText(entry: LogEntry): React.ReactNode {
-  if (!entry.check) return null;
+// 判定は d100 の下方ロール。数直線 1〜100 の左から目標値までを成功域として塗り、
+// 出目の位置に印を落とす。印が塗りの内側なら成功、と数字を読まずに分かる。
+// 閾値（決定的成功 = rate/5、致命的失敗 = fumbleFloor 以上）は resolve.ts の判定式と揃える
+function CheckGauge({
+  rate,
+  roll,
+  outcome,
+  className = '',
+  markerClass = '',
+  labelClass = '',
+  emphasis = false,
+}: {
+  rate: number;
+  roll?: number;
+  outcome?: LogEntry['outcome'];
+  className?: string;
+  markerClass?: string;
+  labelClass?: string;
+  /** 成否をゲージの下に大きく出す（結果画面用） */
+  emphasis?: boolean;
+}) {
   return (
-    <>
-      {rateText(entry.check)}　→　出目 {entry.check.roll}
-      <span className={`ml-2 ${OUTCOME_CLASS[entry.outcome]}`}>{OUTCOME_LABEL[entry.outcome]}</span>
-    </>
+    <div className={`grid gap-1 ${className}`}>
+      <div className="relative h-1.5 rounded-full bg-abyss">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-forest transition-all duration-700"
+          style={{ width: `${rate}%` }}
+        />
+        <div
+          className="absolute inset-y-0 left-0 rounded-l-full bg-gold transition-all duration-700"
+          style={{ width: `${Math.ceil(rate / 5)}%` }}
+        />
+        <div
+          className="absolute inset-y-0 right-0 rounded-r-full bg-blood/70"
+          style={{ width: `${101 - fumbleFloor}%` }}
+        />
+        {roll !== undefined && (
+          <div
+            className={`absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 bg-parchment ${markerClass}`}
+            style={{ left: `${roll}%`, '--roll': `${roll}%` } as React.CSSProperties}
+          />
+        )}
+      </div>
+      {roll !== undefined && outcome && (
+        <p className={`flex justify-between font-display text-xs tabular-nums tracking-wider text-dim ${labelClass}`}>
+          <span>出目 {roll}</span>
+          {/* 結果画面では成否を別行で大きく出すので、ここでは畳む */}
+          {!emphasis && <span className={OUTCOME_CLASS[outcome]}>{OUTCOME_LABEL[outcome]}</span>}
+        </p>
+      )}
+      {emphasis && outcome && (
+        <p
+          className={`pt-2 text-center font-display text-2xl tracking-[0.3em] ${OUTCOME_CLASS[outcome]} ${labelClass}`}
+        >
+          {OUTCOME_LABEL[outcome]}
+        </p>
+      )}
+    </div>
   );
 }
 
+// ログで伝えたいのは「成否」と「何を失い、何を得たか」。
+// 判定の内訳・ゲージ・描写文は根拠なので畳み、見たいときだけ開く
 function LogArticle({ entry }: { entry: LogEntry }) {
   const delta = deltaText(entry);
-  const check = checkText(entry);
+  const label = OUTCOME_LABEL[entry.outcome];
   return (
     <article className="grid gap-1">
       <p className="text-xs text-dim">
         {entry.turn}: {directionLabels[entry.direction]}
         {entry.detail && `（${entry.detail}）`}
       </p>
-      {check && (
-        <p className="font-display text-xs tabular-nums tracking-wider text-dim">{check}</p>
+      {(label || delta) && (
+        <p className="flex flex-wrap items-baseline gap-x-4 font-display text-sm tabular-nums tracking-wider text-parchment">
+          {label && <span className={OUTCOME_CLASS[entry.outcome]}>{label}</span>}
+          {delta && <span>{delta}</span>}
+        </p>
       )}
-      <p>{entry.narration}</p>
-      {delta && <p className="text-xs tabular-nums text-dim">{delta}</p>}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-dim">詳細ログ</summary>
+        <div className="grid gap-1 pt-2">
+          {entry.check && (
+            <>
+              <p className="font-display tabular-nums tracking-wider text-dim">
+                {rateText(entry.check)}
+              </p>
+              <CheckGauge rate={entry.check.rate} roll={entry.check.roll} outcome={entry.outcome} />
+            </>
+          )}
+          <p className="text-sm">{entry.narration}</p>
+        </div>
+      </details>
     </article>
   );
 }
@@ -302,12 +369,12 @@ function Modal({
 // 行動の結果を一拍置いて見せる。読み終える頃に自動で閉じ、以降はログとして残る
 function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
   const delta = deltaText(entry);
-  const check = checkText(entry);
-  const narration = useSplitLines<HTMLParagraphElement>(check ? 1800 : 1200);
+  const check = entry.check;
+  const narration = useSplitLines<HTMLParagraphElement>(check ? 3800 : 1200);
   return (
     <Modal
       // 読了までの目安。描写文の長さに比例させ、上限で頭打ちにする
-      ms={Math.min((entry.check ? 4200 : 3600) + entry.narration.length * 90, 9800)}
+      ms={Math.min((entry.check ? 5600 : 3600) + entry.narration.length * 90, 11200)}
       onClose={onClose}
     >
       <>
@@ -316,20 +383,31 @@ function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
           {entry.turn}: {directionLabels[entry.direction]}
           {entry.detail && `（${entry.detail}）`}
         </p>
-        {/* 出目を描写より先に見せる。描写は出目の帰結なので、順序で因果を示す */}
+        {/* 出目を描写より先に見せる。描写は出目の帰結なので、順序で因果を示す。
+            ゲージが出てから印が左右を一往復し（sweep 1.6s）、止まってから出目と成否を出す */}
         {check && (
-          <p
-            className="animate-fade-in pt-3 font-display text-sm tabular-nums tracking-wider text-dim [animation-delay:1200ms] [animation-fill-mode:backwards]"
-          >
-            {check}
-          </p>
+          <div className="animate-fade-in grid gap-1 pt-3 [animation-delay:1200ms] [animation-fill-mode:backwards]">
+            <p className="font-display text-sm tabular-nums tracking-wider text-dim">
+              {rateText(check)}
+            </p>
+            <CheckGauge
+              rate={check.rate}
+              roll={check.roll}
+              outcome={entry.outcome}
+              markerClass="animate-sweep [animation-delay:1800ms] [animation-fill-mode:backwards]"
+              labelClass="animate-fade-in [animation-delay:3400ms] [animation-fill-mode:backwards]"
+              emphasis
+            />
+          </div>
         )}
         {/* 行ごとに立ち上げる（use-split-lines） */}
         <p ref={narration} className="pt-3 text-base leading-loose">
           {entry.narration}
         </p>
         {delta && (
-          <p className="animate-fade-in pt-4 text-xs tabular-nums text-dim [animation-delay:2200ms] [animation-fill-mode:backwards]">
+          <p
+            className={`animate-fade-in pt-4 text-xs tabular-nums text-dim [animation-fill-mode:backwards] ${check ? '[animation-delay:4400ms]' : '[animation-delay:2200ms]'}`}
+          >
             {delta}
           </p>
         )}
@@ -712,6 +790,12 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                     // 上限に達したら入力を固定する。直前の判定で確定する
                     disabled={sending || previewExhausted}
                     autoFocus
+                  />
+                  {/* 測定前は技能値そのものを成功域として見せ、測定後に補正込みの目標値へ伸縮させる。
+                      ロールしない判定は測定前の幅のまま */}
+                  <CheckGauge
+                    rate={shownPreview?.rate?.rate ?? visible.skills[litSkill!]}
+                    className={previewing ? 'animate-pulse' : ''}
                   />
                   {/* 事前判定の状態を常に 1 行で示す: 入力待ち → 測定中 → 結果。
                       見せるのはダイス補正だけ。ロールしない判定は「……」 */}
