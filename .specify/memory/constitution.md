@@ -91,7 +91,7 @@ MVP の完成まで実装してはならない。抽象化は 2 つ目の実装�
 
 - 実装前に計画を提示し、承認を得てから着手する（AGENTS.md の Work Rules に従う）。
 - タスクは `just` 経由で実行する。lefthook の Git フックを無効化して commit しない。
-- 設計判断は `adr/` に ADR として記録する。本 Constitution と矛盾する ADR は採択できない。
+- 設計判断は `adr/jev-trpg/` に ADR として記録する。本 Constitution と矛盾する ADR は採択できない。
 - テンプレート元からの取り込みは `just sync`（マージコミット）で行う。squash / rebase は
   共通祖先を壊すため使用しない。
 - 仕様作業は Spec Kit のコマンド（`/speckit-specify` → `/speckit-plan` → `/speckit-tasks`
