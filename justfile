@@ -6,6 +6,22 @@ list:
 setup:
     pnpm -C web install
 
+# Add packages (just add kugiri / just add -D vitest)
+add *PKGS:
+    pnpm -C web add {{PKGS}}
+
+# Remove packages
+remove *PKGS:
+    pnpm -C web remove {{PKGS}}
+
+# Show outdated packages
+outdated:
+    pnpm -C web outdated
+
+# Update packages to latest within package.json ranges
+upgrade *PKGS:
+    pnpm -C web update {{PKGS}}
+
 # Run the dev server
 dev:
     pnpm -C web run dev

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
 import { siteName } from '@/lib/site';
 import { previewDebounceMs } from '@/lib/game/tuning';
+import { useSplitLines } from '@/lib/use-split-lines';
 import {
   DIRECTIONS,
   DIRECTION_SKILL,
@@ -262,6 +263,7 @@ function Modal({
 function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
   const delta = deltaText(entry);
   const check = checkText(entry);
+  const narration = useSplitLines<HTMLParagraphElement>(check ? 1800 : 1200);
   return (
     <Modal
       // 読了までの目安。描写文の長さに比例させ、上限で頭打ちにする
@@ -282,10 +284,8 @@ function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
             {check}
           </p>
         )}
-        <p
-          className={`animate-fade-in pt-3 text-base leading-loose [animation-fill-mode:backwards] ${OUTCOME_CLASS[entry.outcome] ?? ''}`}
-          style={{ animationDelay: check ? '1800ms' : '1200ms' }}
-        >
+        {/* 行ごとに立ち上げる（use-split-lines） */}
+        <p ref={narration} className={`pt-3 text-base leading-loose ${OUTCOME_CLASS[entry.outcome] ?? ''}`}>
           {entry.narration}
         </p>
         {delta && (
@@ -301,6 +301,7 @@ function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
 // 幕切れはまず理由だけを告げる。正体・目的・弱点などの詳細は閉じた後の画面で読ませる
 function EndReveal({ ending }: { ending: Ending }) {
   const style = ENDING_STYLE[ending.reason];
+  const text = useSplitLines<HTMLParagraphElement>(1600);
   return (
     <Modal ms={Math.min(3600 + ending.text.length * 90, 9800)}>
       <>
@@ -309,7 +310,7 @@ function EndReveal({ ending }: { ending: Ending }) {
         >
           {style.label}
         </p>
-        <p className="animate-fade-in pt-5 text-sm leading-loose [animation-delay:1600ms] [animation-fill-mode:backwards]">
+        <p ref={text} className="pt-5 text-sm leading-loose">
           {ending.text}
         </p>
       </>

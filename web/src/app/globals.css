@@ -69,6 +69,8 @@ p,
 li {
   overflow-wrap: anywhere;
   line-break: strict;
+  /* 文節で折り返す（Chrome 119+、非対応ブラウザは無視） */
+  word-break: auto-phrase;
 }
 
 /* 指で押せる大きさを確保する */
