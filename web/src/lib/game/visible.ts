@@ -17,7 +17,11 @@ export function toVisible(state: GameState, rng: Rng = Math.random): VisibleStat
     scene: narrateScene(state, rng),
     entityEpithet: state.entity.epithet,
     entityAppearance: state.entity.appearance,
-    acquiredClues: state.acquiredClueIds.map((id) => ({ id, text: state.clues[id].text })),
+    acquiredClues: state.acquiredClueIds.map((id) => ({
+      id,
+      text: state.clues[id].text,
+      hints: [...state.clues[id].hints],
+    })),
     log: state.log,
     ending: state.ending,
   };

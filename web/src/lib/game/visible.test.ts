@@ -50,7 +50,9 @@ describe('toVisible', () => {
     const acquired = Object.keys(state.clues)[0];
     const visible = toVisible({ ...state, acquiredClueIds: [acquired] }, rng);
 
-    expect(visible.acquiredClues).toEqual([{ id: acquired, text: state.clues[acquired].text }]);
+    expect(visible.acquiredClues).toEqual([
+      { id: acquired, text: state.clues[acquired].text, hints: state.clues[acquired].hints },
+    ]);
 
     const json = JSON.stringify(visible);
     for (const clue of Object.values(state.clues)) {

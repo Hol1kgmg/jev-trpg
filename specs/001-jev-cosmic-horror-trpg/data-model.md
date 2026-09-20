@@ -150,6 +150,7 @@ type LogEntry = {
   direction: Direction;       // プレイヤーが選んだ方向性
   detail: string;             // 添えられた詳細（空文字もありうる）
   outcome: Outcome;
+  check?: { skill: SkillId; rate: number; roll: number }; // d100 を振ったターンのみ（FR-009a）
   narration: string;          // テンプレート展開済み
   delta: { hp: number; sanity: number; clueId: string | null };
 };

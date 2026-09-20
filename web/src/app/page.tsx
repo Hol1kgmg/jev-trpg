@@ -1,9 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '@/lib/store';
-import { DIRECTIONS, type Direction, type SkillId } from '@/lib/game/types';
+import {
+  DIRECTIONS,
+  type Clue,
+  type Direction,
+  type Ending,
+  type LogEntry,
+  type SkillId,
+  type VisibleState,
+} from '@/lib/game/types';
 
 const skillLabels: Record<SkillId, string> = {
   investigate: '調査',
@@ -21,10 +29,303 @@ const directionLabels: Record<Direction, string> = {
   withdraw: '退く',
 };
 
+const ASPECTS: [Clue['hints'][number], string][] = [
+  ['nature', '正体'],
+  ['purpose', '目的'],
+  ['weakness', '弱点'],
+];
+
+// 終了理由ごとに色だけ変える。文面はサーバーのテンプレートが決める（FR-020）
+const ENDING_STYLE: Record<Ending['reason'], { label: string; text: string; box: string }> = {
+  clear: { label: '生還', text: 'text-forest-light', box: 'border-forest/50 bg-forest/6' },
+  death: { label: '死亡', text: 'text-blood-light', box: 'border-blood/50 bg-blood/6' },
+  madness: { label: '発狂', text: 'text-gold', box: 'border-gold/50 bg-gold/6' },
+  timeout: { label: '時間切れ', text: 'text-dim', box: 'border-edge bg-surface' },
+};
+
+// 成否の両端だけ色で強調する。中間は描写文に任せる
+const OUTCOME_CLASS: Partial<Record<LogEntry['outcome'], string>> = {
+  critical_success: 'text-gold',
+  fumble: 'text-blood-light',
+};
+
+const PANEL = 'rounded-sm border border-edge bg-panel p-3';
+const HEADING = 'font-display text-[10px] tracking-[0.25em] text-dim uppercase';
+
+// ボタンは主（parchment 枠）と従（edge 枠）の 2 種。どちらも最低 44px（ui-spec §7）
+function Btn({
+  primary,
+  className = '',
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`min-h-11 rounded-sm border px-5 font-display text-xs tracking-[0.2em] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        primary
+          ? 'border-parchment/30 text-parchment hover:border-parchment/70 hover:bg-parchment/5'
+          : 'border-edge text-dim hover:border-dim hover:text-parchment'
+      } ${className}`}
+      {...props}
+    />
+  );
+}
+
+// HP と正気度は 0 で即終了するので、残りが少ないことは描写より先に伝える
+function Gauge({ label, value, max }: { label: string; value: number; max: number }) {
+  const low = value <= 3;
+  return (
+    <div className="grid gap-1">
+      <div className="flex items-baseline justify-between">
+        <span className={HEADING}>{label}</span>
+        <span className={`text-sm tabular-nums ${low ? 'animate-pulse text-blood-light' : ''}`}>
+          {value}
+          <span className="text-xs text-dim">/{max}</span>
+        </span>
+      </div>
+      <div className="h-1 overflow-hidden rounded-full bg-abyss">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${low ? 'animate-pulse-blood bg-blood' : 'bg-forest'}`}
+          style={{ width: `${(value / max) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Vitals({ visible, className = '' }: { visible: VisibleState; className?: string }) {
+  return (
+    <div className={`grid gap-2 ${className}`}>
+      <p className="font-display text-sm tabular-nums tracking-wider">
+        TURN {Math.min(visible.turn, visible.maxTurn)}
+        <span className="text-dim"> / {visible.maxTurn}</span>
+      </p>
+      <Gauge label="HP" value={visible.hp} max={10} />
+      <Gauge label="正気度" value={visible.sanity} max={10} />
+    </div>
+  );
+}
+
+function Epithet({ children, className = '' }: { children: string; className?: string }) {
+  return <h1 className={`font-display tracking-wider ${className}`}>{children}</h1>;
+}
+
+// 技能・所持品の書式を 1 箇所にまとめる。lg 未満は畳み、待機画面とサイドでは開いたまま
+function Investigator({
+  visible,
+  collapsible = false,
+}: {
+  visible: VisibleState;
+  collapsible?: boolean;
+}) {
+  const body = (
+    <div className="grid gap-1 pt-2 text-xs text-dim">
+      <p className="tabular-nums">
+        {(Object.keys(skillLabels) as SkillId[])
+          .map((id) => `${skillLabels[id]} ${visible.skills[id]}`)
+          .join('　')}
+      </p>
+      <p>所持品: {visible.items.join('、')}</p>
+    </div>
+  );
+  if (collapsible) {
+    return (
+      <details className="text-xs">
+        <summary className="cursor-pointer text-dim">{visible.occupation}</summary>
+        {body}
+      </details>
+    );
+  }
+  return (
+    <div className="text-xs">
+      <p className={HEADING}>探索者</p>
+      <p className="pt-1">{visible.occupation}</p>
+      {body}
+    </div>
+  );
+}
+
+// 行動が何をもたらしたかは描写文からは読み取れないので、増減を数字で添える
+function deltaText(entry: LogEntry): string {
+  const parts: string[] = [];
+  if (entry.delta.hp !== 0) parts.push(`HP ${entry.delta.hp > 0 ? '+' : ''}${entry.delta.hp}`);
+  if (entry.delta.sanity !== 0)
+    parts.push(`正気度 ${entry.delta.sanity > 0 ? '+' : ''}${entry.delta.sanity}`);
+  if (entry.delta.clueId !== null) parts.push('手がかりを得た');
+  return parts.join('　');
+}
+
+const OUTCOME_LABEL: Partial<Record<LogEntry['outcome'], string>> = {
+  critical_success: '決定的成功',
+  success: '成功',
+  failure: '失敗',
+  fumble: '致命的失敗',
+};
+
+// 判定は d100 の下方ロール。どの技能で、目標値いくつに対して、何が出たかを 1 行で示す
+function checkText(entry: LogEntry): string | null {
+  if (!entry.check) return null;
+  const { skill, rate, roll } = entry.check;
+  return `${skillLabels[skill]} ${rate}　→　出目 ${roll}　${OUTCOME_LABEL[entry.outcome] ?? ''}`;
+}
+
+function LogArticle({ entry }: { entry: LogEntry }) {
+  const delta = deltaText(entry);
+  const check = checkText(entry);
+  return (
+    <article className="grid gap-1">
+      <p className="text-xs text-dim">
+        {entry.turn}: {directionLabels[entry.direction]}
+        {entry.detail && `（${entry.detail}）`}
+      </p>
+      {check && (
+        <p
+          className={`font-display text-xs tabular-nums tracking-wider ${OUTCOME_CLASS[entry.outcome] ?? 'text-dim'}`}
+        >
+          {check}
+        </p>
+      )}
+      <p className={OUTCOME_CLASS[entry.outcome]}>{entry.narration}</p>
+      {delta && <p className="text-xs tabular-nums text-dim">{delta}</p>}
+    </article>
+  );
+}
+
+// 一拍置いて見せるための器。ゆっくり現れ、読み終える頃に自動で閉じる（遷移は globals.css）
+function Modal({
+  ms,
+  onClose,
+  children,
+}: {
+  ms: number;
+  onClose?: () => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    el?.showModal();
+    const id = setTimeout(() => el?.close(), ms);
+    return () => clearTimeout(id);
+  }, [ms]);
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={() => ref.current?.close()}
+      className="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-parchment outline-none backdrop:bg-void/90"
+    >
+      <div className="rounded-sm border border-edge bg-panel p-6">{children}</div>
+      {/* 自動で閉じるが、待たずに進めることも示す */}
+      <button
+        type="button"
+        className="animate-fade-in mx-auto block min-h-11 px-4 pt-3 font-display text-xs tracking-[0.2em] text-dim hover:text-parchment [animation-delay:2600ms] [animation-fill-mode:backwards]"
+      >
+        閉じる
+      </button>
+    </dialog>
+  );
+}
+
+// 行動の結果を一拍置いて見せる。読み終える頃に自動で閉じ、以降はログとして残る
+function Reveal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
+  const delta = deltaText(entry);
+  const check = checkText(entry);
+  return (
+    <Modal
+      // 読了までの目安。描写文の長さに比例させ、上限で頭打ちにする
+      ms={Math.min((entry.check ? 4200 : 3600) + entry.narration.length * 90, 9800)}
+      onClose={onClose}
+    >
+      <>
+        {/* 遅延は枠が現れ切る 800ms の後から始める（globals.css の dialog 遷移と揃える） */}
+        <p className="animate-fade-in text-xs text-dim [animation-delay:800ms] [animation-fill-mode:backwards]">
+          {entry.turn}: {directionLabels[entry.direction]}
+          {entry.detail && `（${entry.detail}）`}
+        </p>
+        {/* 出目を描写より先に見せる。描写は出目の帰結なので、順序で因果を示す */}
+        {check && (
+          <p
+            className={`animate-fade-in pt-3 font-display text-sm tabular-nums tracking-wider [animation-delay:1200ms] [animation-fill-mode:backwards] ${OUTCOME_CLASS[entry.outcome] ?? 'text-dim'}`}
+          >
+            {check}
+          </p>
+        )}
+        <p
+          className={`animate-fade-in pt-3 text-base leading-loose [animation-fill-mode:backwards] ${OUTCOME_CLASS[entry.outcome] ?? ''}`}
+          style={{ animationDelay: check ? '1800ms' : '1200ms' }}
+        >
+          {entry.narration}
+        </p>
+        {delta && (
+          <p className="animate-fade-in pt-4 text-xs tabular-nums text-dim [animation-delay:2200ms] [animation-fill-mode:backwards]">
+            {delta}
+          </p>
+        )}
+      </>
+    </Modal>
+  );
+}
+
+// 幕切れはまず理由だけを告げる。正体・目的・弱点などの詳細は閉じた後の画面で読ませる
+function EndReveal({ ending }: { ending: Ending }) {
+  const style = ENDING_STYLE[ending.reason];
+  return (
+    <Modal ms={Math.min(3600 + ending.text.length * 90, 9800)}>
+      <>
+        <p
+          className={`animate-fade-in text-center font-display text-3xl tracking-[0.3em] [animation-delay:800ms] [animation-fill-mode:backwards] ${style.text}`}
+        >
+          {style.label}
+        </p>
+        <p className="animate-fade-in pt-5 text-sm leading-loose [animation-delay:1600ms] [animation-fill-mode:backwards]">
+          {ending.text}
+        </p>
+      </>
+    </Modal>
+  );
+}
+
+// タイトル画面の背景演出（格子・ビネット・同心円）。待機画面だけに使う
+function Backdrop() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 flex items-center justify-center overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(45,106,79,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(45,106,79,0.8) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: 'radial-gradient(ellipse at center, transparent 35%, #080706 85%)' }}
+      />
+      <div className="absolute h-[480px] w-[480px] rounded-full border border-forest/8" />
+      <div className="absolute h-[360px] w-[360px] rounded-full border border-forest/6" />
+      <div className="absolute h-[240px] w-[240px] rounded-full border border-forest/4" />
+    </div>
+  );
+}
+
 export default function Page() {
-  const { visible, phase, sending, error, newGame, restore, startSession, submit } = useGame();
+  const { visible: live, phase, sending, error, newGame, restore, startSession, submit } = useGame();
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
+  const [reveal, setReveal] = useState<LogEntry | null>(null);
+  // モーダルで結果を見せ終えるまで、送信前の状態のまま描く（ログ・調書・情景が先に動かないように）
+  const [frozen, setFrozen] = useState<VisibleState | null>(null);
+  const [ending, setEnding] = useState<Ending | null>(null);
+  const visible = frozen ?? live;
+  const unfreeze = useCallback(() => {
+    // フェードアウト（globals.css の 800ms）が終わってから最新状態に差し替える
+    setTimeout(() => {
+      setFrozen(null);
+      // 幕切れは最後の行動の結果を見せ終えてから告げる
+      setEnding(useGame.getState().visible?.ending ?? null);
+    }, 800);
+  }, []);
 
   // 保存値があれば続きから、なければ新規プレイ（AS 3-1）
   useEffect(() => {
@@ -33,214 +334,266 @@ export default function Page() {
 
   // どの画面からも 1 クリックで到達できる位置に置く（FR-025）
   const credits = (
-    <footer className="border-t border-neutral-900 pt-3">
-      <Link className="text-xs underline opacity-50" href="/credits">
+    <footer className="border-t border-edge pt-3">
+      <Link className="text-xs text-dim underline hover:text-parchment" href="/credits">
         クレジット
       </Link>
     </footer>
   );
 
   const restart = (
-    <button
-      type="button"
-      className="justify-self-start self-start border border-neutral-700 px-4 py-2 text-xs"
-      onClick={() => void newGame()}
-      disabled={sending}
-    >
+    <Btn className="justify-self-start self-start" onClick={() => void newGame()} disabled={sending}>
       新規開始
-    </button>
+    </Btn>
   );
 
   // 復元にも新規プレイにも失敗した状態。行き止まりにせず新規プレイを提案する（AS 3-3）
   if (visible === null) {
     return (
-      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6 text-sm opacity-80">
+      <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6 text-sm">
         {error ? (
           <>
-            <p>続きを読み込めませんでした。新しく始めてください。</p>
+            <p className="text-dim">続きを読み込めませんでした。新しく始めてください。</p>
             {restart}
           </>
         ) : (
-          <p className="opacity-70">……</p>
+          <p className="animate-flicker text-dim">……</p>
         )}
         {credits}
       </main>
     );
   }
 
-  const investigator = (
-    <section className="grid gap-1 text-xs opacity-80">
-      <p>{visible.occupation}</p>
-      <p>
-        {(Object.keys(skillLabels) as SkillId[])
-          .map((id) => `${skillLabels[id]} ${visible.skills[id]}`)
-          .join('　')}
-      </p>
-      <p>所持品: {visible.items.join('、')}</p>
-    </section>
-  );
-
   // 待機画面。開示するのはセッション中と同じ範囲だけ（FR-026 / FR-027）
   if (phase === 'briefing') {
     return (
-      <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
-        <header className="border-b border-neutral-800 pb-3">
-          <h1 className="text-lg tracking-wide">{visible.entityEpithet}</h1>
+      <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-8 p-4 sm:p-6 animate-fade-in">
+        <Backdrop />
+        <header className="grid gap-3 text-center">
+          <p className={HEADING}>Cosmic Horror · Solo</p>
+          <Epithet className="animate-flicker text-4xl sm:text-5xl">{visible.entityEpithet}</Epithet>
+          <div className="flex items-center justify-center gap-4">
+            <div className="h-px w-16 bg-linear-to-r from-transparent to-forest/40" />
+            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold/50" />
+            <div className="h-px w-16 bg-linear-to-l from-transparent to-forest/40" />
+          </div>
         </header>
         <section className="text-sm leading-loose">{visible.entityAppearance}</section>
-        {investigator}
-        <button
-          type="button"
-          className="justify-self-start self-start border border-neutral-700 px-4 py-2 text-xs"
-          onClick={startSession}
-        >
+        {/* 「正体不明を明らかにする」が目標だと、遊ぶ前に一度だけ言葉で示す */}
+        <section className="grid gap-1 border-l border-gold/40 pl-3 text-xs leading-relaxed text-dim">
+          <p>相手の正体・目的・弱点は、まだ何も分かっていない。</p>
+          <p>観察して明らかにし、弱点を突け。猶予は {visible.maxTurn} ターン。</p>
+        </section>
+        <section className={PANEL}>
+          <Investigator visible={visible} />
+        </section>
+        <Btn primary className="w-52 self-center" onClick={startSession}>
           対峙する
-        </button>
+        </Btn>
         {credits}
       </main>
     );
   }
 
   const ended = visible.ending !== null;
+  const past = visible.log.slice(0, -1);
+  const last = visible.log.at(-1);
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-800 pb-3">
-        <h1 className="text-lg tracking-wide">{visible.entityEpithet}</h1>
-        <p className="text-xs tabular-nums opacity-70">
-          ターン {Math.min(visible.turn, visible.maxTurn)} / {visible.maxTurn}　HP {visible.hp}　正気度{' '}
-          {visible.sanity}
-        </p>
+    // PC とスマートフォン縦画面の 2 系統に留める（plan.md）。lg 未満は上端の sticky ヘッダー、
+    // lg 以上は右側の sticky な box。本文の並びはどちらも「ログ → 現在の状況 → 手がかり → 行動」
+    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pb-4 sm:px-6 sm:pb-6 lg:grid lg:max-w-4xl lg:grid-cols-[1fr_15rem] lg:items-start lg:gap-x-8 lg:pt-6">
+      {/* ログが伸びても基本情報が流れないよう画面上端に留める。背景を塗らないとログが透ける。
+          毎ターン判断に効く残量を主、一度読めば足りる異名と探索者情報を従に置く */}
+      <header className="sticky top-0 z-10 grid gap-2 border-b border-edge bg-void pt-4 pb-3 sm:pt-6 lg:hidden">
+        <div className="flex items-baseline justify-between gap-4">
+          <p className="font-display text-sm tabular-nums tracking-wider">
+            TURN {Math.min(visible.turn, visible.maxTurn)}
+            <span className="text-dim"> / {visible.maxTurn}</span>
+          </p>
+          <Epithet className="text-xs text-dim">{visible.entityEpithet}</Epithet>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Gauge label="HP" value={visible.hp} max={10} />
+          <Gauge label="正気度" value={visible.sanity} max={10} />
+        </div>
+        <Investigator visible={visible} collapsible />
       </header>
 
-      <section className="text-sm leading-loose">{visible.scene}</section>
-
-      {investigator}
-
-      {visible.acquiredClues.length > 0 && (
-        <section className="border-l border-neutral-700 pl-3 text-xs leading-relaxed opacity-90">
-          <h2 className="mb-1 opacity-70">入手済みの手がかり</h2>
-          <ul className="grid gap-1">
-            {visible.acquiredClues.map((clue) => (
-              <li key={clue.id}>{clue.text}</li>
-            ))}
-          </ul>
+      {/* ゲーム情報とプレイヤー情報。手がかりはターンごとに伸びて行動の直前に読むものなので入れない */}
+      <aside className="hidden lg:sticky lg:top-6 lg:col-start-2 lg:grid lg:gap-3">
+        <section className={PANEL}>
+          <Epithet className="border-b border-edge pb-2 text-sm text-dim">{visible.entityEpithet}</Epithet>
+          <Vitals visible={visible} className="pt-3" />
         </section>
-      )}
-
-      <section className="grid gap-4 text-sm leading-loose">
-        {visible.log.map((entry) => (
-          <article key={entry.turn} className="border-t border-neutral-900 pt-3">
-            <p className="text-xs opacity-50">
-              {entry.turn}: {directionLabels[entry.direction]}
-              {entry.detail && `（${entry.detail}）`}
-            </p>
-            <p>{entry.narration}</p>
-          </article>
-        ))}
-      </section>
-
-      {ended ? (
-        <section className="grid gap-4 border-t border-neutral-700 pt-4 text-sm leading-loose">
-          <p>{visible.ending!.text}</p>
-          <dl className="grid gap-1 text-xs opacity-80">
-            <div>
-              <dt className="inline opacity-60">正体: </dt>
-              <dd className="inline">{visible.ending!.reveal.nature}</dd>
-            </div>
-            <div>
-              <dt className="inline opacity-60">目的: </dt>
-              <dd className="inline">{visible.ending!.reveal.purpose}</dd>
-            </div>
-            <div>
-              <dt className="inline opacity-60">弱点: </dt>
-              <dd className="inline">{visible.ending!.reveal.weakness}</dd>
-            </div>
-            <div>
-              <dt className="inline opacity-60">あなたの秘密: </dt>
-              <dd className="inline">{visible.ending!.reveal.secret}</dd>
-            </div>
-          </dl>
-          {restart}
+        <section className={PANEL}>
+          <Investigator visible={visible} />
         </section>
-      ) : (
-        <section className="grid gap-3 border-t border-neutral-800 pt-4">
-          {direction === null ? (
-            <div className="grid gap-2">
-              <p className="text-xs opacity-60">あなたはどうする？（方針）</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {DIRECTIONS.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    className="min-h-11 border border-neutral-700 px-3 py-2 text-xs"
-                    disabled={sending}
-                    onClick={() => setDirection(d)}
-                  >
-                    {directionLabels[d]}
-                  </button>
-                ))}
-              </div>
+      </aside>
+
+      <div className="flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
+        {/* 上から下へ時系列。古いログは畳み、直前のターンと現在の状況だけを開く */}
+        {past.length > 0 && (
+          <details className="text-sm leading-loose text-dim">
+            <summary className="cursor-pointer text-xs">これまで ({past.length})</summary>
+            <div className="grid gap-4 pt-3">
+              {past.map((entry) => (
+                <LogArticle key={entry.turn} entry={entry} />
+              ))}
             </div>
-          ) : (
-            <form
-              className="grid gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const sent = detail.trim();
-                setDirection(null);
-                setDetail('');
-                void submit(direction, sent);
-              }}
+          </details>
+        )}
+
+        {last && (
+          <section className="text-sm leading-loose text-dim">
+            <LogArticle entry={last} />
+          </section>
+        )}
+
+        <section className="border-t border-edge pt-4 text-base leading-loose">{visible.scene}</section>
+
+        {ended ? (
+          <section className="grid gap-5 border-t border-edge pt-4 text-sm leading-loose animate-fade-in">
+            <p
+              className={`justify-self-start rounded-sm border px-6 py-2 font-display tracking-[0.2em] ${ENDING_STYLE[visible.ending!.reason].box} ${ENDING_STYLE[visible.ending!.reason].text}`}
             >
-              <p className="text-xs opacity-60">あなたはどうする？（詳細）</p>
-              <p className="text-xs opacity-70">方針: {directionLabels[direction]}</p>
-              <input
-                // text-base（16px）未満だと iOS が入力時に画面を拡大する
-                className="w-full border border-neutral-700 bg-transparent px-3 py-2 text-base outline-none"
-                placeholder="空欄のままでも進められます"
-                maxLength={200}
-                value={detail}
-                onChange={(e) => setDetail(e.target.value)}
-                disabled={sending}
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="border border-neutral-700 px-4 py-2 text-xs"
-                  disabled={sending}
-                >
-                  決定
-                </button>
-                <button
-                  type="button"
-                  className="px-2 py-2 text-xs opacity-60"
-                  disabled={sending}
-                  onClick={() => {
+              {ENDING_STYLE[visible.ending!.reason].label}
+            </p>
+            <p>{visible.ending!.text}</p>
+            <dl className={`${PANEL} grid gap-1 text-xs`}>
+              {(
+                [
+                  ['正体', visible.ending!.reveal.nature],
+                  ['目的', visible.ending!.reveal.purpose],
+                  ['弱点', visible.ending!.reveal.weakness],
+                  ['あなたの秘密', visible.ending!.reveal.secret],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="inline text-dim">{label}: </dt>
+                  <dd className="inline">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {restart}
+          </section>
+        ) : (
+          <>
+            {/* 判断の唯一の根拠なので、判断する場所の直前に開いたまま置く（FR-017） */}
+            {/* 正体・目的・弱点の枠を最初から見せ、埋まっていく形で「明らかにする」進みを示す */}
+            <section className={`${PANEL} grid gap-3 text-xs`}>
+              <p className={`${HEADING} border-b border-edge pb-2`}>調書</p>
+              {ASPECTS.map(([aspect, label]) => {
+                const clues = visible.acquiredClues.filter((c) => c.hints.includes(aspect));
+                return (
+                  <div key={aspect} className="grid gap-1">
+                    <p className="font-display tracking-wider text-dim">
+                      {label}
+                      {clues.length === 0 && <span className="text-edge">　不明</span>}
+                    </p>
+                    {clues.length > 0 && (
+                      <ul className="grid gap-1 leading-relaxed">
+                        {clues.map((clue) => (
+                          <li key={clue.id} className="animate-slide-up">
+                            {clue.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+
+            <section className="grid gap-3 border-t border-edge pt-4">
+              {sending && <p className="animate-flicker text-xs text-gold">判定中……</p>}
+              {direction === null ? (
+                <div className="grid gap-2">
+                  <p className="text-xs text-dim">あなたはどうする？（方針）</p>
+                  {visible.acquiredClues.length === 0 && (
+                    <p className="text-xs text-dim">まずは観察して、相手の正体を探る。</p>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {DIRECTIONS.map((d) => (
+                      <Btn
+                        key={d}
+                        className="px-3 py-3 hover:border-forest hover:bg-forest/8"
+                        disabled={sending}
+                        onClick={() => setDirection(d)}
+                      >
+                        {directionLabels[d]}
+                      </Btn>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <form
+                  className="grid gap-3 animate-slide-up"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const sent = detail.trim();
                     setDirection(null);
                     setDetail('');
+                    setFrozen(visible);
+                    void submit(direction, sent).then(() => {
+                      // ログが伸びたときだけ結果を見せる（二重送信・エラー時は伸びない）
+                      const added = useGame.getState().visible?.log.at(-1);
+                      if (added && added.turn !== last?.turn) setReveal(added);
+                      else setFrozen(null);
+                    });
                   }}
                 >
-                  選び直す
-                </button>
-              </div>
-            </form>
-          )}
-        </section>
-      )}
+                  <p className="text-xs text-dim">あなたはどうする？（詳細）</p>
+                  <p className="font-display text-xs tracking-wider text-forest-light">
+                    方針: {directionLabels[direction]}
+                  </p>
+                  <input
+                    // text-base（16px）未満だと iOS が入力時に画面を拡大する
+                    className="w-full rounded-sm border border-edge bg-abyss px-3 py-2 text-base outline-none focus:border-dim"
+                    placeholder="空欄のままでも進められます"
+                    maxLength={200}
+                    value={detail}
+                    onChange={(e) => setDetail(e.target.value)}
+                    disabled={sending}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Btn primary type="submit" disabled={sending}>
+                      決定
+                    </Btn>
+                    <Btn
+                      className="border-transparent"
+                      disabled={sending}
+                      onClick={() => {
+                        setDirection(null);
+                        setDetail('');
+                      }}
+                    >
+                      選び直す
+                    </Btn>
+                  </div>
+                </form>
+              )}
+            </section>
+          </>
+        )}
 
-      {error === 'invalid_action' && (
-        <p className="text-xs text-amber-500">その入力は受け付けられませんでした。</p>
-      )}
-      {error === 'invalid_state' && (
-        <section className="grid gap-2">
-          <p className="text-xs text-amber-500">保存された状態を読めませんでした。</p>
-          {restart}
-        </section>
-      )}
+        {error === 'invalid_action' && (
+          <p className="text-xs text-gold">その入力は受け付けられませんでした。</p>
+        )}
+        {error === 'invalid_state' && (
+          <section className="grid gap-2">
+            <p className="text-xs text-gold">保存された状態を読めませんでした。</p>
+            {restart}
+          </section>
+        )}
 
-      {credits}
+        {credits}
+      </div>
+
+      {/* ターンごとに作り直してフェードインをやり直す。閉じた後は残しておくだけで害がない */}
+      {reveal && <Reveal key={reveal.turn} entry={reveal} onClose={unfreeze} />}
+      {ending && <EndReveal ending={ending} />}
     </main>
   );
 }

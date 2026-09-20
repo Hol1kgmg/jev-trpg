@@ -275,3 +275,49 @@ T026〜T028 を終えておく**と、登録漏れがその場でテストに落
 - [X] T042 `adr/jev-trpg/` に本機能の設計判断を ADR として記録する: 状態の AES-256-GCM 封緘（research.md R-003）、Jev を Vercel AI Gateway 経由で呼ぶこと（R-001）、描写をテンプレート選択に限ること（Constitution I） per Constitution 開発ワークフロー (missing)
 - [X] T043 `.specify/memory/constitution.md` の原則 V「1プレイ15〜20分」を spec.md SC-002 / plan.md の「8〜12分」に合わせて改定する（Governance の改定手順に従い、バージョンと Sync Impact Report を更新する）per Constitution V vs SC-002 (contradicts)
 - [X] T044 `web/src/lib/game/resolve.ts` がハードコードしている HP・正気度の上限 `10` を `web/src/lib/game/tuning.ts` の定数に移し、`resolve.ts` から参照する per plan.md「tuning.ts = 暫定値の集約点」 (partial)
+
+---
+
+## Phase 9: 情報優先度の整理（UI）
+
+**Purpose**: FR-017 の「常時参照可能」は満たしていたが、優先度の高い情報
+（残ターン・HP・正気度・手がかり・直前の結果）が、低い情報（全件のログ、技能値、異名）に
+押し下げられて画面外に流れていた。配置で優先度を表現し直す。
+
+判断の材料 → 因果のフィードバック → 参照情報 → 伏せるもの、の 4 段で整理した結果を反映する。
+
+- [X] T045 `web/src/app/page.tsx` の結果描写に増減を 1 行で添える（`HP -2　正気度 -1　手がかりを得た`）。`LogEntry.delta` を保持しながら表示していなかったため、プレイヤーが行動と結果の因果を学習できなかった（FR-009 / AS 1-3）
+- [X] T046 `web/src/app/page.tsx` のログ表示を「直前 1 ターンのみ展開、それ以前は折りたたみ」に変える。全件常時展開が縦を食い、現在の状況と行動 UI を画面外へ押し出していた。縦が固定長になるので `scrollIntoView` による追従は削除する（FR-017 は折りたたみでも満たす）
+- [X] T047 `web/src/app/page.tsx` のヘッダーの主従を入れ替える: 毎ターン判断に効く残ターン・HP・正気度を主に、一度読めば足りる異名・職業を従に。HP・正気度が 3 以下のときは色を変える（0 で即終了するため、残量そのものが判断を変える）
+- [X] T048 `web/src/app/page.tsx` の入手済み手がかりをヘッダーの折りたたみから出し、行動 UI の直上に常時表示する。クリア条件へ至る唯一の根拠が、参照情報（技能値）と同じ見た目・同じ優先度に見えていた（FR-017 / AS 2-1）
+- [X] T049 `web/src/app/page.tsx` に `lg` 以上でのサイドレイアウトを組む（`lg:grid lg:grid-cols-[1fr_15rem]`）。ゲーム情報（ターン・異名）とプレイヤー情報（HP・正気度・職業・技能・所持品）を右の sticky な box にまとめ、本文は「ログ → 現在の状況 → 手がかり → 行動」のままにする。手がかりはターンごとに伸びて行動の直前に読むものなので box に入れない。`lg` 未満は T047 の sticky ヘッダーを維持する（plan.md「詳細なレスポンシブ最適化は範囲外」の下限として、PC とスマートフォン縦画面の 2 系統に留める）
+- [X] T050 T049 で 2 レイアウトに重複した箇所を `web/src/app/page.tsx` 内のコンポーネントに抜く: `Vitals`（ターン / HP / 正気度）、`Epithet`（異名）、`Investigator`（職業 / 技能 / 所持品）。`className` を外から渡して置き場所と文字サイズの差を吸収する。先に部品を定義せず、実際に 2 回書いたものだけを抜く
+- [X] T051 `Investigator` に `collapsible` prop を持たせ、`lg` 未満は折りたたみ、`lg` 以上は開いたままにする。モバイル用の部品を別に用意すると技能ラベルや所持品の書式が 2 箇所に散り、片方だけ直し忘れる
+- [X] T052 `just check` を通し、`JEV_STUB=1 just dev` でスマートフォン縦画面幅と PC 幅の両方で 8 ターン遊び、優先度の高い情報がどのターンでも画面内に収まっていることを確認する（SC-002 / plan.md の表示前提）
+
+**依存**: T049 → T050 → T051 → T052（すべて同一ファイルのため並行不可）
+
+---
+
+## Phase 10: デザインの適用
+
+**Purpose**: [DesignCthulhuTRPGApp](https://github.com/Hol1kgmg/DesignCthulhuTRPGApp) の配色・書体・部品の見た目を取り込む。
+情報の優先順位と画面構成（Phase 9）は変えず、ダークであること・日本語長文が読めること（docs/ui-spec.md §2）は維持する。
+デザイン側にある MP・幸運・状態異常・ダイス演出・探索/戦闘画面・メニュー・セーブ/ロードは本仕様に存在しないため採用しない。
+
+- [X] T053 `web/src/app/globals.css` にデザインの `@theme` トークン（void / abyss / panel / parchment / dim / edge / forest / blood / gold）と keyframes（flicker / fade-in / slide-up / pulse-blood）を移す。書体は `web/src/app/layout.tsx` で next/font から Cinzel（見出し）と Shippori Mincho（本文。IM Fell English は和文を持たないため代替）を読み込む。新規依存は追加しない
+- [X] T054 `web/src/app/page.tsx` の見た目を差し替える: HP・正気度を `Gauge`（バー表示、3 以下で blood 色＋pulse）に、待機画面に TitleScreen の背景演出と大見出しの異名、4 択と主従ボタンを `Btn` に統一（最低 44px、ui-spec §7）、調書と探索者情報を panel 枠に、送信中を flicker 付きの `判定中……` に
+- [X] T055 `web/src/app/page.tsx` のエンディングを終了理由で色分けする（clear=forest / death=blood / madness=gold / timeout=dim）。文面はテンプレートのまま、ラベルと枠だけ変える（ui-spec §8-2 の論点をここで決めた）。ログの結果描写は critical_success を gold、fumble を blood で 1 行だけ色付けする
+- [X] T056 `web/src/app/credits/page.tsx` の配色を同じトークンに揃える
+- [X] T057 `just check` と `next build` を通し、`JEV_STUB=1` で 375px / 1280px の待機・セッション・エンディングを Playwright のスクリーンショットで確認する
+
+---
+
+## Phase 11: 判定の開示
+
+**Purpose**: d100 判定は `resolve.ts` で行われていたが、技能・目標値・出目が `outcome` に畳まれて
+プレイヤーに見えていなかった。判定を可視化し、成否の因果を数字で追えるようにする（FR-009a）。
+
+- [X] T058 `web/src/lib/game/types.ts` の `LogEntry` に `check?: { skill; rate; roll }` を追加する。optional にして封緘済みの旧データを壊さない。`ambiguous` / `meta` では付けない
+- [X] T059 `web/src/lib/game/resolve.ts` の `rollOutcome` が `check` も返すようにし、`LogEntry` に載せる。判定ルールは変えない。`resolve.test.ts` に「ロールしたターンは check が付く」「ロールしないターンは付かない」の 2 ケースを足す
+- [X] T060 `web/src/app/page.tsx` の `LogArticle` と `Reveal` に `戦闘 65　→　出目 42　成功` の 1 行を描写の前に置く。`Reveal` では出目→描写の順にフェードインさせ、閉じるまでの時間を 600ms 延ばす。ダイスの転がる演出は Phase 10 の判断どおり採用しない

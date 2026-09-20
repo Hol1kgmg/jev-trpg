@@ -15,7 +15,7 @@ import {
   sanityLoss,
   weaknessBonus,
 } from './tuning';
-import type { Direction, GameState, Judgment, LogEntry, Outcome } from './types';
+import type { Check, Direction, GameState, Judgment, LogEntry, Outcome } from './types';
 
 export type TurnDelta = { hp: number; sanity: number; clueId: string | null };
 
@@ -40,13 +40,18 @@ export function successRate(state: GameState, judgment: Judgment): number {
   return clamp(skill + plausibilityMod[plausible] + bonus, rateMin, rateMax);
 }
 
-function rollOutcome(state: GameState, judgment: Judgment, rng: Rng): Outcome {
+function rollOutcome(
+  state: GameState,
+  judgment: Judgment,
+  rng: Rng,
+): { outcome: Outcome; check: Check } {
   const rate = successRate(state, judgment);
   const roll = Math.floor(rng() * 100) + 1;
-  if (roll >= fumbleFloor) return 'fumble';
-  if (roll <= Math.ceil(rate / 5)) return 'critical_success';
-  if (roll <= rate) return 'success';
-  return 'failure';
+  const check = { skill: judgment.skill, rate, roll };
+  if (roll >= fumbleFloor) return { outcome: 'fumble', check };
+  if (roll <= Math.ceil(rate / 5)) return { outcome: 'critical_success', check };
+  if (roll <= rate) return { outcome: 'success', check };
+  return { outcome: 'failure', check };
 }
 
 export function resolveTurn(
@@ -66,10 +71,10 @@ export function resolveTurn(
     };
   }
 
-  const outcome: Outcome = judgment.metaCheat
-    ? 'meta'
+  const { outcome, check } = judgment.metaCheat
+    ? { outcome: 'meta' as const, check: undefined }
     : judgment.confidence < confidenceThresholds.ambiguous
-      ? 'ambiguous'
+      ? { outcome: 'ambiguous' as const, check: undefined }
       : rollOutcome(state, judgment, rng);
 
   const succeeded = outcome === 'critical_success' || outcome === 'success';
@@ -112,6 +117,7 @@ export function resolveTurn(
     direction,
     detail,
     outcome,
+    ...(check && { check }),
     narration,
     delta: {
       hp: hp - state.investigator.hp,

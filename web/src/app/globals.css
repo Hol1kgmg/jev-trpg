@@ -1,15 +1,61 @@
 @import 'tailwindcss';
 
+/* 配色は DesignCthulhuTRPGApp から。暗い羊皮紙の上に森・血・金の 3 色だけを差す */
+@theme {
+  --color-void: #080706;
+  --color-abyss: #0d0c0a;
+  --color-panel: #131210;
+  --color-surface: #1c1916;
+  --color-parchment: #d4c5a9;
+  --color-dim: #8a7a65;
+  --color-edge: #2a2520;
+  --color-forest: #2d6a4f;
+  --color-forest-light: #4a9970;
+  --color-blood: #8b2020;
+  --color-blood-light: #b03535;
+  --color-gold: #c9a84c;
+  --color-gold-dim: #8a7030;
+
+  --animate-flicker: flicker 5s ease-in-out infinite;
+  --animate-fade-in: fade-in 1s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-pulse-blood: pulse-blood 2s ease-in-out infinite;
+
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    33% { opacity: 0.88; }
+    66% { opacity: 0.94; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-blood {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139, 32, 32, 0); }
+    50% { box-shadow: 0 0 16px 4px rgba(139, 32, 32, 0.35); }
+  }
+}
+
+/* 書体は layout.tsx の next/font が CSS 変数で渡す。欧文見出しは Cinzel、和文本文は しっぽり明朝 */
+@theme inline {
+  --font-display: var(--font-cinzel), Georgia, serif;
+  --font-body: var(--font-shippori), 'Hiragino Mincho ProN', 'Noto Serif JP', serif;
+}
+
 :root {
-  --background: #0b0b0d;
-  --foreground: #d8d3c8;
+  --background: var(--color-void);
+  --foreground: var(--color-parchment);
   color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  font-family: var(--font-body);
   line-height: 1.8;
   /* スマートフォン縦画面でも横スクロールを出さない */
   overflow-x: hidden;
@@ -30,3 +76,28 @@ button,
 a {
   touch-action: manipulation;
 }
+
+/* 結果モーダルはゆっくり現れてゆっくり消える。閉じる間も見えている必要があるので
+   display と overlay も allow-discrete で遷移させる */
+dialog,
+dialog::backdrop {
+  opacity: 0;
+  transition:
+    opacity 800ms ease,
+    display 800ms allow-discrete,
+    overlay 800ms allow-discrete;
+}
+dialog[open],
+dialog[open]::backdrop {
+  opacity: 1;
+}
+@starting-style {
+  dialog[open],
+  dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: var(--color-abyss); }
+::-webkit-scrollbar-thumb { background: var(--color-edge); border-radius: 2px; }

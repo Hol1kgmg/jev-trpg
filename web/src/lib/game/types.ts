@@ -68,12 +68,17 @@ export type Clue = {
   hints: ('nature' | 'purpose' | 'weakness')[];
 };
 
+/** d100 判定の内訳。プレイヤーに開示する */
+export type Check = { skill: SkillId; rate: number; roll: number };
+
 export type LogEntry = {
   turn: number;
   direction: Direction;
   /** 添えられた詳細（空文字もありうる） */
   detail: string;
   outcome: Outcome;
+  /** ロールしたターンのみ。ambiguous / meta では undefined。optional なのは旧封緘データ互換のため */
+  check?: Check;
   /** テンプレート展開済み */
   narration: string;
   delta: { hp: number; sanity: number; clueId: string | null };
@@ -114,7 +119,8 @@ export type VisibleState = {
   scene: string;
   entityEpithet: string;
   entityAppearance: string;
-  acquiredClues: { id: string; text: string }[];
+  /** hints は「どの側面に関わるか」の分類だけで、隠す本文（nature 等）は含まない */
+  acquiredClues: { id: string; text: string; hints: Clue['hints'] }[];
   log: LogEntry[];
   ending: Ending | null;
 };

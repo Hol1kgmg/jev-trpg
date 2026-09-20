@@ -75,6 +75,19 @@ describe('resolveTurn', () => {
     expect(resolveTurn(state, 'observe', '', baseJudgment, rollOnce(100)).outcome).toBe('fumble');
   });
 
+  it('ロールしたターンは技能・目標値・出目をログに残す', () => {
+    const result = resolveTurn(fixedGameState(), 'observe', '', baseJudgment, rollOnce(42));
+    expect(result.state.log[0].check).toEqual({ skill: 'investigate', rate: 65, roll: 42 });
+  });
+
+  it('ロールしないターンには check が付かない', () => {
+    const state = fixedGameState();
+    const ambiguous = resolveTurn(state, 'engage', '', { ...baseJudgment, confidence: 0.4 }, wouldFumble);
+    const meta = resolveTurn(state, 'engage', '', { ...baseJudgment, metaCheat: true }, wouldFumble);
+    expect(ambiguous.state.log[0].check).toBeUndefined();
+    expect(meta.state.log[0].check).toBeUndefined();
+  });
+
   it('confidence < 0.5 ならロールせず ambiguous', () => {
     const state = fixedGameState();
     const result = resolveTurn(
