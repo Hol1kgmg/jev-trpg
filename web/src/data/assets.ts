@@ -7,4 +7,18 @@
 
 import type { AssetEntry } from '@/lib/game/types';
 
-export const assets: AssetEntry[] = [];
+export const assets: AssetEntry[] = [
+  {
+    // OGP 画像。本プロジェクトの自作
+    path: 'og-image.png',
+    sourceUrl: 'https://github.com/Hol1kgmg/jev-trpg',
+    author: 'Hol1kgmg',
+    license: 'All rights reserved',
+    licenseUrl: 'https://github.com/Hol1kgmg/jev-trpg',
+    requiresCredit: false,
+    creditText: '',
+    commercialUse: true,
+    modification: true,
+    modified: false,
+  },
+];
