@@ -11,9 +11,32 @@ const shippori = Shippori_Mincho({
   variable: '--font-shippori',
 });
 
+const siteName = '静かな観測';
+const description =
+  'ブラウザで遊ぶ 1 人用のコズミックホラー TRPG。探索者と怪異はランダム生成。毎ターン「観察・攻撃・働きかけ・退く」から方針を選び、最大 8 ターンで決着する。';
+
+// metadataBase は Vercel 上では VERCEL_PROJECT_PRODUCTION_URL から自動解決される
 export const metadata: Metadata = {
-  title: '静かな観測',
-  description: '1人用コズミックホラーTRPG',
+  title: { default: siteName, template: `%s | ${siteName}` },
+  description,
+  keywords: ['TRPG', 'コズミックホラー', '1人用', 'ソロ', 'ブラウザゲーム', '静かな観測'],
+  formatDetection: { email: false, address: false, telephone: false },
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: 'website',
+    locale: 'ja_JP',
+    siteName,
+    title: siteName,
+    description,
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: siteName }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: siteName,
+    description,
+    images: ['/og-image.png'],
+  },
+  category: 'Gaming',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
