@@ -499,6 +499,8 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
   const [focused, setFocused] = useState(false);
+  // ホバー（またはフォーカス）中の方針。選ぶ前に、どの技能が効くかを探索者欄で光らせる
+  const [hovered, setHovered] = useState<Direction | null>(null);
 
   // 入力欄からフォーカスが外れて一定時間で事前判定。入力中は測らず、再フォーカスで取り消す（ADR 0004）
   useEffect(() => {
@@ -513,6 +515,8 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   }, [direction, detail, phase, preview, previewing, focused, requestPreview]);
   // 光らせる技能。方針と 1 対 1 なので選んだ時点で確定する
   const litSkill = direction === null ? null : DIRECTION_SKILL[direction];
+  // 探索者欄で光らせる技能。未選択のあいだはホバー中の方針で仮に光らせる
+  const shownLit = litSkill ?? (hovered === null ? null : DIRECTION_SKILL[hovered]);
   // 表示するのは今の入力に対する判定だけ。古い判定は出さない。
   // 空欄はサーバーと同じ妥当性 0 の確定判定として、測定後と同じ見た目で出す
   const shownPreview =
@@ -656,7 +660,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
           <Gauge label="HP" value={visible.hp} max={10} />
           <Gauge label="正気度" value={visible.sanity} max={10} />
         </div>
-        <Investigator visible={visible} lit={litSkill} collapsible />
+        <Investigator visible={visible} lit={shownLit} collapsible />
       </header>
 
       {/* ゲーム情報とプレイヤー情報。手がかりはターンごとに伸びて行動の直前に読むものなので入れない */}
@@ -666,7 +670,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
           <Vitals visible={visible} className="pt-3" />
         </section>
         <section className={PANEL}>
-          <Investigator visible={visible} lit={litSkill} />
+          <Investigator visible={visible} lit={shownLit} />
         </section>
       </aside>
 
@@ -767,14 +771,15 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                       return (
                         <Btn
                           key={d}
-                          className={`grid gap-0.5 px-3 py-3 hover:border-forest hover:bg-forest/8 ${ready ? 'border-gold/60 text-gold' : ''}`}
+                          className={`px-3 py-3 hover:border-forest hover:bg-forest/8 ${ready ? 'border-gold/60 text-gold' : ''}`}
                           disabled={sending}
                           onClick={() => setDirection(d)}
+                          onMouseEnter={() => setHovered(d)}
+                          onMouseLeave={() => setHovered(null)}
+                          onFocus={() => setHovered(d)}
+                          onBlur={() => setHovered(null)}
                         >
                           {directionLabels[d]}
-                          <span className="text-[10px] tabular-nums tracking-normal text-dim">
-                            {skillLabels[DIRECTION_SKILL[d]]} {visible.skills[DIRECTION_SKILL[d]]}
-                          </span>
                         </Btn>
                       );
                     })}
