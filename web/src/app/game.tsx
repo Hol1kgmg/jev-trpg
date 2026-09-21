@@ -720,7 +720,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
             {/* 判断の唯一の根拠なので、判断する場所の直前に開いたまま置く（FR-017） */}
             {/* 正体・目的・弱点の枠を最初から見せ、各枠にどの方針（と技能）で決着できるかを添える。
                 揃った枠は点灯させる。条件文は出さない（FR-017a） */}
-            <section className={`${PANEL} grid gap-3 text-xs`}>
+            <section className={`${PANEL} grid gap-6 text-xs`}>
               <p className={`${HEADING} border-b border-edge pb-2`}>調書</p>
               {ASPECTS.map((aspect) => {
                 const clues = visible.acquiredClues.filter((c) => c.hints.includes(aspect));
