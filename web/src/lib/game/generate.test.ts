@@ -81,6 +81,16 @@ describe('generateGameState', () => {
     }
   });
 
+  // 一部にだけ付けると、どれがルートの前提かが見た目で漏れる（FR-003）
+  it('すべての手がかりが本文に含まれる keyword を持つ', () => {
+    for (const seed of seeds) {
+      for (const clue of Object.values(generateGameState(mulberry32(seed)).clues)) {
+        expect(clue.keyword, `seed ${seed}: ${clue.id}`).toBeTruthy();
+        expect(clue.text).toContain(clue.keyword);
+      }
+    }
+  });
+
   it('初期状態はターン 1・未決着・現行スキーマ版', () => {
     const state = generateGameState(mulberry32(42));
     expect(state.version).toBe(STATE_VERSION);

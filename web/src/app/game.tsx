@@ -337,6 +337,20 @@ function LogArticle({ entry }: { entry: LogEntry }) {
   );
 }
 
+// 手がかりの本文を dim に落とし、事実の核（keyword）だけを本来の明るさで残す。
+// keyword が無い（keyword 追加前に封緘したデータ）か本文に見つからなければ本文のまま
+function Emphasized({ text, keyword }: { text: string; keyword?: string }) {
+  const at = keyword ? text.indexOf(keyword) : -1;
+  if (!keyword || at < 0) return text;
+  return (
+    <span className="text-dim">
+      {text.slice(0, at)}
+      <span className="text-sm font-bold text-parchment">{keyword}</span>
+      {text.slice(at + keyword.length)}
+    </span>
+  );
+}
+
 // 一拍置いて見せるための器。ゆっくり現れ、読み終える頃に自動で閉じる（遷移は globals.css）
 function Modal({
   ms,
@@ -731,7 +745,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                       <ul className="grid gap-1 leading-relaxed">
                         {clues.map((clue) => (
                           <li key={clue.id} className="animate-slide-up">
-                            {clue.text}
+                            <Emphasized text={clue.text} keyword={clue.keyword} />
                           </li>
                         ))}
                       </ul>

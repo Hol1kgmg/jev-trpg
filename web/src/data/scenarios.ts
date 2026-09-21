@@ -36,30 +36,37 @@ export const entityMotifs: EntityMotif[] = [
       {
         text: '像の縁が、見つめている間だけ濃くなる。目を逸らすと、逸らした先に薄い残りが移る。',
         hints: ['nature'],
+        keyword: '見つめている間だけ',
       },
       {
         text: '足元の影が、頭上の灯りに対して四十分ぶん遅れた角度で落ちている。',
         hints: ['weakness', 'nature'],
+        keyword: '四十分ぶん遅れた',
       },
       {
         text: '配電盤の手書き注意書きが読める。「主灯は落とすな。落とすときは全部いっぺんに」。',
         hints: ['weakness'],
+        keyword: '全部いっぺんに',
       },
       {
         text: 'それが立つ床の目盛りは、観測に使うには細かすぎる刻みで円周に彫られている。',
         hints: ['purpose'],
+        keyword: '細かすぎる刻み',
       },
       {
         text: '接眼部に残る指の脂。人のものにしては、押しつけられた時間が長すぎる。',
         hints: ['purpose'],
+        keyword: '押しつけられた時間が長すぎる',
       },
       {
         text: 'こちらが瞬きをするたび、像の位置がわずかに近い。近づく瞬間だけが記録から抜けている。',
         hints: ['nature', 'purpose'],
+        keyword: '記録から抜けている',
       },
       {
         text: '観測日誌の三日ぶんが、同じ筆跡で前もって書かれている。今日のぶんまで埋まっている。',
         hints: ['nature'],
+        keyword: '前もって書かれている',
       },
     ],
     routes: {
@@ -92,30 +99,37 @@ export const entityMotifs: EntityMotif[] = [
       {
         text: '人影の手が刻む拍が、こちらの足音と同じ間隔になっている。止まると、拍も止まる。',
         hints: ['nature'],
+        keyword: 'こちらの足音と同じ間隔',
       },
       {
         text: '計数器の窓に、四桁のうち下二桁だけが動かないまま固まっている。',
         hints: ['weakness', 'nature'],
+        keyword: '下二桁だけが動かない',
       },
       {
         text: '壁の貼り紙。「計数に狂いあり。手回しで合わせること。合わせたら二度と触るな」。',
         hints: ['weakness'],
+        keyword: '手回しで合わせること',
       },
       {
         text: '床のタイルに、改札を戻る向きの足跡だけが積み重なって黒ずんでいる。',
         hints: ['purpose'],
+        keyword: '戻る向きの足跡だけ',
       },
       {
         text: '切符の束が握り込まれている。日付はすべて、この駅が閉じたあとのものだ。',
         hints: ['purpose'],
+        keyword: '閉じたあとのもの',
       },
       {
         text: '人影が数を口にするとき、こちらの名前と同じ音がひとつ混ざる。',
         hints: ['nature', 'purpose'],
+        keyword: 'こちらの名前と同じ音',
       },
       {
         text: '改札機の内側に、爪でつけた正の字がある。最後の一画だけが繰り返し彫り直されている。',
         hints: ['weakness'],
+        keyword: '最後の一画だけが繰り返し彫り直されている',
       },
     ],
     routes: {
@@ -147,30 +161,37 @@ export const entityMotifs: EntityMotif[] = [
       {
         text: 'それが言葉を出す直前、こちらの喉が勝手に動く。音はこちらから出ていない。',
         hints: ['nature'],
+        keyword: 'こちらの喉が勝手に動く',
       },
       {
         text: '送信記録の最後の一行が、途中で切れている。切れた先に、消された文字の凹みが残る。',
         hints: ['weakness', 'purpose'],
+        keyword: '途中で切れている',
       },
       {
         text: '卓の手順書に赤字。「代読するな。読むなら最後まで読め」。',
         hints: ['weakness'],
+        keyword: '読むなら最後まで読め',
       },
       {
         text: '受話器のコードが、誰も座っていない椅子のほうへ引かれた形で固まっている。',
         hints: ['purpose'],
+        keyword: '誰も座っていない椅子のほう',
       },
       {
         text: '水の跡が卓の上で乾かない。乾かないまま、同じ字の形に何度も広がる。',
         hints: ['nature'],
+        keyword: '同じ字の形に何度も広がる',
       },
       {
         text: '前任の通信士の名簿に、同じ名前が二度書かれている。二度目の筆跡だけが濡れている。',
         hints: ['nature', 'purpose'],
+        keyword: '二度目の筆跡だけが濡れている',
       },
       {
         text: '送信機の電鍵が、触れていないのに一定の間隔で沈む。間隔は通信文の欠けた部分と同じ長さだ。',
         hints: ['weakness'],
+        keyword: '欠けた部分と同じ長さ',
       },
     ],
     routes: {
@@ -202,30 +223,37 @@ export const entityMotifs: EntityMotif[] = [
       {
         text: '雪の上の足跡が、すべて小屋へ向かっている。出ていった跡が一つもない。',
         hints: ['nature'],
+        keyword: '出ていった跡が一つもない',
       },
       {
         text: '測量野帳の距離が、ページをめくるたび少しずつ短く書き換えられている。',
         hints: ['purpose', 'nature'],
+        keyword: '少しずつ短く書き換えられている',
       },
       {
         text: '小屋の柱に刻まれた基点番号。同じ番号が、地面の杭にも彫られている。',
         hints: ['weakness'],
+        keyword: '地面の杭にも彫られている',
       },
       {
         text: '杭のまわりの雪だけが溶けている。溶けた輪の大きさは、日ごとに小さくなっている。',
         hints: ['weakness', 'purpose'],
+        keyword: '日ごとに小さくなっている',
       },
       {
         text: 'それが動くとき、先に足跡ができ、あとから足が下りる。',
         hints: ['nature'],
+        keyword: '先に足跡ができ',
       },
       {
         text: '前任者の手紙。「杭を抜けと言われた。抜いたら測れなくなると言い返した」。',
         hints: ['weakness', 'purpose'],
+        keyword: '杭を抜けと言われた',
       },
       {
         text: '峠の標識の距離が、来たときに見た数字と合わない。数字のほうが新しく彫られている。',
         hints: ['purpose'],
+        keyword: '数字のほうが新しく彫られている',
       },
     ],
     routes: {

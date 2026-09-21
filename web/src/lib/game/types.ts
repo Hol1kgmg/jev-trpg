@@ -81,6 +81,8 @@ export type Clue = {
   id: string;
   text: string;
   hints: ('nature' | 'purpose' | 'weakness')[];
+  /** 本文の中で事実の核になる語句（本文の部分文字列）。調書で目立たせる。旧封緘データでは欠けうる */
+  keyword?: string;
 };
 
 /**
@@ -158,7 +160,7 @@ export type VisibleState = {
   entityEpithet: string;
   entityAppearance: string;
   /** hints は「どの側面に関わるか」の分類だけで、隠す本文（nature 等）は含まない */
-  acquiredClues: { id: string; text: string; hints: Clue['hints'] }[];
+  acquiredClues: { id: string; text: string; hints: Clue['hints']; keyword?: string }[];
   /** 必要な手がかりが揃い、決着を狙える方針。条件文は含まない */
   readyDirections: RouteDirection[];
   log: LogEntry[];

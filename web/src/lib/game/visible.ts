@@ -23,6 +23,7 @@ export function toVisible(state: GameState, rng: Rng = Math.random): VisibleStat
       id,
       text: state.clues[id].text,
       hints: [...state.clues[id].hints],
+      ...(state.clues[id].keyword && { keyword: state.clues[id].keyword }),
     })),
     readyDirections: readyRoutes(state),
     log: state.log,
