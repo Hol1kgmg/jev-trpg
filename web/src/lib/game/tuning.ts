@@ -52,7 +52,7 @@ export const jevTimeoutMs = 5000;
 /** 事前判定の 1 ターンあたりの上限。超えたら入力を固定し、最後の判定で確定する（ADR 0004） */
 export const previewLimit = 10;
 
-/** 入力が止まってから事前判定を送るまでの待ち（ミリ秒） */
+/** 入力欄からフォーカスが外れてから事前判定を送るまでの待ち（ミリ秒） */
 export const previewDebounceMs = 3000;
 
 /**

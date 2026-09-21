@@ -498,10 +498,11 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   } = useGame();
   const [direction, setDirection] = useState<Direction | null>(null);
   const [detail, setDetail] = useState('');
+  const [focused, setFocused] = useState(false);
 
-  // 入力が止まってから一定時間で事前判定。入力が変われば取り消して数え直す（ADR 0004）
+  // 入力欄からフォーカスが外れて一定時間で事前判定。入力中は測らず、再フォーカスで取り消す（ADR 0004）
   useEffect(() => {
-    if (direction === null || phase !== 'playing' || previewing) return;
+    if (direction === null || phase !== 'playing' || previewing || focused) return;
     const sent = detail.trim();
     // 空欄は測らない。サーバーも Jev を呼ばず妥当性 0 で確定する（emptyJudgment）
     if (sent === '') return;
@@ -509,7 +510,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
     const id = setTimeout(() => void requestPreview(direction, sent), previewDebounceMs);
     return () => clearTimeout(id);
     // previewing を含めるのは、通信中に入力が変わったとき、終わってから数え直すため
-  }, [direction, detail, phase, preview, previewing, requestPreview]);
+  }, [direction, detail, phase, preview, previewing, focused, requestPreview]);
   // 光らせる技能。方針と 1 対 1 なので選んだ時点で確定する
   const litSkill = direction === null ? null : DIRECTION_SKILL[direction];
   // 表示するのは今の入力に対する判定だけ。古い判定は出さない。
@@ -815,9 +816,10 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                     maxLength={200}
                     value={detail}
                     onChange={(e) => setDetail(e.target.value)}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
                     // 上限に達したら入力を固定する。直前の判定で確定する
                     disabled={sending || previewExhausted}
-                    autoFocus
                   />
                   {/* 事前判定の状態を 1 行で示す。測定後は内訳行の数字が結果の合図なので空ける */}
                   <p className="min-h-4 font-display text-xs tracking-wider text-dim">
