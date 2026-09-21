@@ -4,7 +4,7 @@ import { Experimental_EvaluationMockModelV4 as MockEvaluationModel } from 'ai/te
 import { describe, expect, it, vi } from 'vitest';
 import { confidenceThresholds } from '@/lib/game/tuning';
 import type { JevState } from '@/lib/game/types';
-import { judge, normalizeJudgment } from './client';
+import { emptyJudgment, judge, normalizeJudgment } from './client';
 
 const state: JevState = {
   scene: '薄い像が接眼部の手前に立っている。',
@@ -62,6 +62,19 @@ describe('judge の正規化', () => {
     });
     // Constitution II: 1 ターンにつきちょうど 1 回
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('詳細が空欄なら Jev を呼ばず、妥当性 0 補正で確定する', async () => {
+    const { model, spy } = mock(() => {
+      throw new Error('should not be called');
+    });
+
+    const judgment = await judge({ ...state, action: { direction: 'observe', detail: '  ' } }, null, model);
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(judgment).toEqual(emptyJudgment);
+    expect(judgment.plausibility).toBe(2); // plausibilityMod[2] === 0
+    expect(judgment.meetsClear).toBe(false);
   });
 
   it('しきい値の境界では真に倒す', async () => {

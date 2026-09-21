@@ -221,11 +221,11 @@ function rateText(r: RateBreakdown | Check): React.ReactNode {
   if (r.base === undefined) return `${skillLabels[r.skill]} ${r.rate}`;
   return (
     <>
-      {skillLabels[r.skill]} {r.base}　妥当性
+      {skillLabels[r.skill]} {r.base}　＋　妥当性
       <Signed n={r.plausibility ?? 0} />
       {r.route ? (
         <>
-          　決め手
+          　＋　決め手
           <Signed n={r.route} />
         </>
       ) : null}
@@ -495,18 +495,33 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   useEffect(() => {
     if (direction === null || phase !== 'playing' || previewing) return;
     const sent = detail.trim();
+    // 空欄は測らない。サーバーも Jev を呼ばず妥当性 0 で確定する（emptyJudgment）
+    if (sent === '') return;
     if (preview?.direction === direction && preview.detail === sent) return;
     const id = setTimeout(() => void requestPreview(direction, sent), previewDebounceMs);
     return () => clearTimeout(id);
     // previewing を含めるのは、通信中に入力が変わったとき、終わってから数え直すため
   }, [direction, detail, phase, preview, previewing, requestPreview]);
-  // 表示するのは今の入力に対する判定だけ。古い判定は出さない
+  // 光らせる技能。方針と 1 対 1 なので選んだ時点で確定する
+  const litSkill = direction === null ? null : DIRECTION_SKILL[direction];
+  // 表示するのは今の入力に対する判定だけ。古い判定は出さない。
+  // 空欄はサーバーと同じ妥当性 0 の確定判定として、測定後と同じ見た目で出す
   const shownPreview =
     direction !== null && preview?.direction === direction && preview.detail === detail.trim()
       ? preview
-      : null;
-  // 光らせる技能。方針と 1 対 1 なので選んだ時点で確定する
-  const litSkill = direction === null ? null : DIRECTION_SKILL[direction];
+      : litSkill !== null && live && detail.trim() === ''
+        ? {
+            direction,
+            detail: '',
+            rate: {
+              skill: litSkill,
+              base: live.skills[litSkill],
+              plausibility: 0,
+              route: 0,
+              rate: live.skills[litSkill],
+            },
+          }
+        : null;
   const [reveal, setReveal] = useState<LogEntry | null>(null);
   // モーダルで結果を見せ終えるまで、送信前の状態のまま描く（ログ・調書・情景が先に動かないように）
   const [frozen, setFrozen] = useState<VisibleState | null>(null);
@@ -819,7 +834,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                     ) : shownPreview ? (
                       `${skillLabels[litSkill!]} ${visible.skills[litSkill!]}　ロールなし`
                     ) : (
-                      `${skillLabels[litSkill!]} ${visible.skills[litSkill!]}　妥当性 ???　＝ ???`
+                      `${skillLabels[litSkill!]} ${visible.skills[litSkill!]}　＋　妥当性 ???　＝ ???`
                     )}
                   </p>
                   <div className="flex gap-2">

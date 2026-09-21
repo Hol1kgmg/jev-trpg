@@ -16,6 +16,16 @@ export const fallbackJudgment: Judgment = {
   source: 'fallback',
 };
 
+/** 空欄の行動。Jev は呼ばず、妥当性は中立（補正 0）で確定する。決着は付かない */
+export const emptyJudgment: Judgment = {
+  plausibility: 2,
+  horrorExposure: 1,
+  meetsClear: false,
+  metaCheat: false,
+  confidence: 1,
+  source: 'jev',
+};
+
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 type RawAnswer = { choice?: unknown; score?: unknown; probability?: unknown };
@@ -65,6 +75,7 @@ export async function judge(
   routeDescription: string | null,
   model: Experimental_EvaluationModel = 'typesafe-ai/jev',
 ): Promise<Judgment> {
+  if (state.action.detail.trim() === '') return emptyJudgment;
   if (process.env.JEV_STUB === '1') return judgeStub(state);
 
   try {
