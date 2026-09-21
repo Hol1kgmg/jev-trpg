@@ -42,6 +42,7 @@
 
 | 名前 | 型 | 返る値 | 用途 |
 |---|---|---|---|
+| `baseline_match` | `boolean` | `probability` 0〜1 | 基準の行動「ただ〇〇する」と実質同じか。真なら空欄と同じ Judgment に固定 |
 | `plausibility` | `score` | 0〜4（小数） | 成功率の補正 |
 | `horror_exposure` | `score` | 0〜3（小数） | 正気度の減少量 |
 | `meets_clear` | `boolean` | `probability` 0〜1 | クリア判定と決め手ボーナス。observe では出さない |
@@ -52,17 +53,34 @@ confidence は個々の回答ではなく `providerMetadata.typesafe.confidence`
 
 使用技能は方針で確定する（`DIRECTION_SKILL`）ので `skill` は訊かない。
 
+`plausibility` は絶対評価ではなく、空欄のデフォルト行動「ただ〇〇する」（〇〇は方針の表示名
+`DIRECTION_LABELS`）を基準とした相対評価。空欄は Jev を呼ばず `emptyJudgment`（score 2 = 補正 0）で確定するので、
+方針ラベルはサーバー側の定数なので instructions に埋め込む。
+
+「ただ攻撃する」「普通に攻撃する」「攻撃する」のように基準と実質同じ入力は、LLM に「2 と答えろ」と
+指示しても安定しない。そこで `baseline_match` を同じ 1 回の呼び出しで訊き、`>= 0.7` ならシステム側で
+`emptyJudgment` に固定する（`plausibility` / `meta_cheat` などの答えは見ない）。Jev の呼び出しは 1 回のまま。
+
 ```ts
-export const questions = (routeDescription: string | null) => ({
+export const questions = (routeDescription: string | null, direction: Direction) => ({
+  baseline_match: {
+    type: 'boolean',
+    instructions: `この行動は、基準の行動「ただ${label}」と実質的に同じか`,
+    criteria: {
+      true: '基準と同じ内容、または「普通に」「ただ」などの語を添えただけで、具体的な手順や工夫を何も加えていない',
+      false: '基準にない具体的な手順・対象・道具・工夫を述べている',
+    },
+  },
+
   plausibility: {
     type: 'score',
-    instructions: '現在の状況と所持品に照らして、この行動はどれだけ理にかなっているか',
+    instructions: `基準の行動は「ただ${label}」。現在の状況と所持品に照らして、この行動は基準と比べてどれだけ理にかなっているか`,
     criteria: [
-      '状況上まったく実行不可能、または前提となる物や情報を欠いている',
-      '実行はできるが、状況に対してほとんど噛み合っていない',
-      '無理はないが、特に有利でもない平凡な行動',
-      '状況と所持品を踏まえた、筋の通った行動',
-      '状況と所持品を的確に活かした、最善に近い行動',
+      '基準より明らかに悪い。状況上実行不可能、または前提となる物や情報を欠いている',
+      '基準より劣る。実行はできるが、状況に対して噛み合っていない',
+      `基準と同程度。ただ${label}のと変わらない`,
+      '基準より良い。状況と所持品を踏まえた、筋の通った行動',
+      '基準より格段に良い。状況と所持品を的確に活かした、最善に近い行動',
     ],
   },
 
@@ -109,6 +127,7 @@ export const questions = (routeDescription: string | null) => ({
 
 | 生の応答 | `Judgment` のフィールド | 変換 |
 |---|---|---|
+| `answers.baseline_match.probability` | （全体） | `>= 0.7` なら以下を見ずに `emptyJudgment` を返す |
 | `answers.plausibility.score` | `plausibility` | 0〜4 にクランプ |
 | `answers.horror_exposure.score` | `horrorExposure` | 0〜3 にクランプ |
 | `answers.meets_clear.probability` | `meetsClear` | `>= 0.7`。回答がなければ `false` |

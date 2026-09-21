@@ -21,13 +21,18 @@ const state: JevState = {
 
 type Answers = Record<string, { type: string; choice?: string; score?: number; probability?: number }>;
 
-const fullAnswers = (over: Partial<Answers> = {}): Answers => ({
-  plausibility: { type: 'score', score: 3.4 },
-  horror_exposure: { type: 'score', score: 2.2 },
-  meets_clear: { type: 'boolean', probability: 0.2 },
-  meta_cheat: { type: 'boolean', probability: 0.1 },
-  ...over,
-});
+// undefined を渡した質問はキーごと消す。evaluate は答えのキー集合が質問と完全一致することを要求する
+const fullAnswers = (over: Partial<Answers> = {}): Answers =>
+  Object.fromEntries(
+    Object.entries({
+      baseline_match: { type: 'boolean', probability: 0.1 },
+      plausibility: { type: 'score', score: 3.4 },
+      horror_exposure: { type: 'score', score: 2.2 },
+      meets_clear: { type: 'boolean', probability: 0.2 },
+      meta_cheat: { type: 'boolean', probability: 0.1 },
+      ...over,
+    }).filter(([, v]) => v !== undefined),
+  ) as Answers;
 
 /** doEvaluate を差し替えたモデルと、呼び出しを数えるスパイを返す */
 function mock(doEvaluate: (options: { abortSignal?: AbortSignal }) => unknown) {
@@ -77,6 +82,27 @@ describe('judge の正規化', () => {
     expect(judgment.meetsClear).toBe(false);
   });
 
+  it('基準の行動と実質同じなら、他の答えに関わらず空欄と同じ Judgment に固定する', async () => {
+    const { model } = mock(() => ({
+      answers: fullAnswers({
+        baseline_match: { type: 'boolean', probability: confidenceThresholds.baselineMatch },
+        plausibility: { type: 'score', score: 1 },
+        meta_cheat: { type: 'boolean', probability: 0.9 },
+        meets_clear: undefined, // observe では訊かない
+      }),
+      warnings: [],
+      providerMetadata: { typesafe: { confidence: { plausibility: 0.2 } } },
+    }));
+
+    const judgment = await judge(
+      { ...state, action: { direction: 'observe', detail: 'ただ観察する' } },
+      null,
+      model,
+    );
+
+    expect(judgment).toEqual(emptyJudgment);
+  });
+
   it('しきい値の境界では真に倒す', async () => {
     const { model } = mock(() => ({
       answers: fullAnswers({
@@ -102,6 +128,7 @@ describe('judge の正規化', () => {
 
     const judgment = await judge(state, null, model);
 
+    expect(judgment.source).toBe('jev'); // fallback でも meetsClear は false なので、実応答であることを確かめる
     expect(judgment.meetsClear).toBe(false);
     const options = spy.mock.calls[0][0] as { questions: Record<string, unknown> };
     expect(options.questions.meets_clear).toBeUndefined();

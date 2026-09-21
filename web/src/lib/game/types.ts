@@ -9,6 +9,14 @@ export const DIRECTIONS = ['observe', 'attack', 'engage', 'withdraw'] as const;
 
 export type Direction = (typeof DIRECTIONS)[number];
 
+/** 方針の表示名。UI と Jev の質問文（「ただ〇〇する」を基準の行動とする）で共用する */
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  observe: '観察する',
+  attack: '攻撃する',
+  engage: '働きかける',
+  withdraw: '退く',
+};
+
 /** 方針と技能は 1 対 1。ロールに使う技能は方針で確定し、Jev には尋ねない */
 export const DIRECTION_SKILL: Record<Direction, SkillId> = {
   observe: 'investigate',

@@ -16,7 +16,7 @@ export const fallbackJudgment: Judgment = {
   source: 'fallback',
 };
 
-/** 空欄の行動。Jev は呼ばず、妥当性は中立（補正 0）で確定する。決着は付かない */
+/** 空欄＝デフォルトの行動「ただ〇〇する」。Jev は呼ばず、これを基準（妥当性 2 = 補正 0）として確定する。決着は付かない */
 export const emptyJudgment: Judgment = {
   plausibility: 2,
   horrorExposure: 1,
@@ -44,6 +44,11 @@ export function normalizeJudgment(result: {
   providerMetadata?: unknown;
 }): Judgment {
   const answers = result.answers;
+
+  // 基準の行動「ただ〇〇する」と実質同じなら、他の答えを見ずに空欄と同じ Judgment に固定する
+  if (num(answers.baseline_match?.probability) >= confidenceThresholds.baselineMatch) {
+    return emptyJudgment;
+  }
 
   const confidence = (
     result.providerMetadata as { typesafe?: { confidence?: Record<string, unknown> } } | undefined
@@ -82,11 +87,16 @@ export async function judge(
     const result = await evaluate({
       model,
       state,
-      questions: questions(routeDescription),
+      questions: questions(routeDescription, state.action.direction),
       maxRetries: 0,
       abortSignal: AbortSignal.timeout(jevTimeoutMs),
     });
-    return normalizeJudgment(result);
+    const judgment = normalizeJudgment(result);
+    // ロールなし（meta / 低確信度）の原因切り分け用。入力本文は出さない
+    if (process.env.JEV_DEBUG === '1') {
+      console.log('jev: judgment', { direction: state.action.direction, ...judgment });
+    }
+    return judgment;
   } catch (error) {
     // 握り潰すとフォールバックか実結果か区別がつかない。ゲームは止めないが原因は残す。
     // error 全体は requestBodyValues 経由でルート条件（FR-003 の秘匿対象）を含むため、

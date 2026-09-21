@@ -8,6 +8,7 @@ import { fumbleFloor, previewDebounceMs } from '@/lib/game/tuning';
 import { useSplitLines } from '@/lib/use-split-lines';
 import {
   DIRECTIONS,
+  DIRECTION_LABELS as directionLabels,
   DIRECTION_SKILL,
   ROUTE_ASPECT,
   ROUTE_DIRECTIONS,
@@ -27,13 +28,6 @@ const skillLabels: Record<SkillId, string> = {
   combat: '戦闘',
   persuade: '交渉',
   escape: '逃走',
-};
-
-const directionLabels: Record<Direction, string> = {
-  observe: '観察する',
-  attack: '攻撃する',
-  engage: '働きかける',
-  withdraw: '退く',
 };
 
 const aspectLabels: Record<Clue['hints'][number], string> = {
@@ -798,11 +792,11 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
                   <input
                     // text-base（16px）未満だと iOS が入力時に画面を拡大する
                     className="w-full rounded-sm border border-edge bg-abyss px-3 py-2 text-base outline-none focus:border-dim"
-                    // 決着は詳細の内容で判定される。空欄でもターンは進むが、決着は絶対に付かない
+                    // 決着できる状況でだけ「空欄では決着しない」と伝える。それ以外は空欄＝方針どおりに動く
                     placeholder={
-                      direction === 'observe'
-                        ? '空欄のままでも進められます'
-                        : '何をするかを書く。空欄では決着は付かない'
+                      direction !== 'observe' && visible.readyDirections.includes(direction)
+                        ? `具体的な行動を示す。ただ${directionLabels[direction]}だけでは決着できない`
+                        : `デフォルト: ただ${directionLabels[direction]}`
                     }
                     maxLength={200}
                     value={detail}

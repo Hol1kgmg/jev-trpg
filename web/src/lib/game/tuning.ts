@@ -27,6 +27,8 @@ export const confidenceThresholds = {
   ambiguous: 0.5,
   meetsClear: 0.7,
   metaCheat: 0.6,
+  /** baseline_match がこれ以上なら「ただ〇〇する」と同じ扱い（空欄と同じ Judgment に固定） */
+  baselineMatch: 0.7,
 } as const;
 
 export const maxTurn = 8;
