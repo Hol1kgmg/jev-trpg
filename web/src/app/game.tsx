@@ -638,6 +638,7 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
   }
 
   const ended = visible.ending !== null;
+  const noClues = visible.acquiredClues.length === 0;
   const past = visible.log.slice(0, -1);
   const last = visible.log.at(-1);
 
@@ -765,13 +766,17 @@ export default function Game({ aiActive }: { aiActive: boolean }) {
               {direction === null ? (
                 <div className="grid gap-2">
                   <p className="text-xs text-dim">あなたはどうする？（方針）</p>
+                  {/* 手がかりが 0 件の間は、次に押すべき「観察する」を決着可能ボタンと同じ文法で点灯させる */}
+                  {noClues && (
+                    <p className="text-xs">まず観察して、調書の枠を埋める</p>
+                  )}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {DIRECTIONS.map((d) => {
                       const ready = d !== 'observe' && visible.readyDirections.includes(d);
                       return (
                         <Btn
                           key={d}
-                          className={`px-3 py-3 hover:border-forest hover:bg-forest/8 ${ready ? 'border-gold/60 text-gold' : ''}`}
+                          className={`px-3 py-3 hover:border-forest hover:bg-forest/8 ${ready ? 'border-gold/60 text-gold' : ''} ${d === 'observe' && noClues && hovered === null ? 'animate-pulse border-gold/60 text-gold' : ''}`}
                           disabled={sending}
                           onClick={() => setDirection(d)}
                           onMouseEnter={() => setHovered(d)}
